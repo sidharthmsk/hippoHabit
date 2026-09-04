@@ -1,13 +1,40 @@
+name: habits
+
 services:
   habits:
     build: .
-    ports:
-      - "3000:3000"
+    image: habbit-tracker:latest
+    container_name: habits
     restart: unless-stopped
+    init: true
+    stop_grace_period: 15s
+    ports:
+      - "${PUBLISH_PORT:-3000}:3000"
     volumes:
+      # SQLite file + WAL. Backup this directory (or export JSON from Settings).
       - ./data:/app/data
     environment:
-      ACCESS_KEY: ${ACCESS_KEY}
-      AUTH_SECRET: ${AUTH_SECRET}
+      ACCESS_KEY: ${ACCESS_KEY:?Set ACCESS_KEY in .env}
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
       APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Kolkata}
       DATABASE_PATH: /app/data/habits.db
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/unlock').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

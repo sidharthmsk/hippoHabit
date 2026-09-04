@@ -27,7 +27,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-The app listens on port 3000. Put it behind HTTPS (Caddy, nginx, Traefik). Backup is the file `data/habits.db`, or export JSON from Settings. Import replaces all habits and check-ins.
+The app listens on port 3000 (`PUBLISH_PORT` to change it). Put it behind HTTPS (Caddy, nginx, Traefik). Backup is the file `data/habits.db`, or export JSON from Settings. Import replaces all habits and check-ins.
 
 | Variable | Purpose |
 |---|---|
