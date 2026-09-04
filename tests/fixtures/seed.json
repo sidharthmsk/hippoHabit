@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "exportedAt": "2026-09-04T08:00:00.000Z",
+  "groups": [
+    {
+      "id": "g-body",
+      "name": "Body",
+      "sortOrder": 1,
+      "createdAt": 1700000000000
+    },
+    {
+      "id": "g-mind",
+      "name": "Mind",
+      "sortOrder": 2,
+      "createdAt": 1700000001000
+    }
+  ],
+  "habits": [
+    {
+      "id": "h-run",
+      "name": "Run",
+      "groupId": "g-body",
+      "priority": "high",
+      "sortOrder": 1,
+      "archivedAt": null,
+      "createdAt": 1700000002000
+    },
+    {
+      "id": "h-read",
+      "name": "Read",
+      "groupId": "g-mind",
+      "priority": "medium",
+      "sortOrder": 2,
+      "archivedAt": null,
+      "createdAt": 1700000003000
+    },
+    {
+      "id": "h-floss",
+      "name": "Floss",
+      "groupId": "g-body",
+      "priority": "low",
+      "sortOrder": 3,
+      "archivedAt": null,
+      "createdAt": 1700000004000
+    },
+    {
+      "id": "h-journal",
+      "name": "Old journal",
+      "groupId": null,
+      "priority": "low",
+      "sortOrder": 4,
+      "archivedAt": 1704067200000,
+      "createdAt": 1690000000000
+    }
+  ],
+  "tags": [
+    {
+      "id": "t-health",
+      "name": "health"
+    }
+  ],
+  "habitTags": [
+    {
+      "habitId": "h-run",
+      "tagId": "t-health"
+    }
+  ],
+  "checkins": [
+    { "habitId": "h-journal", "day": "2025-12-31" },
+    { "habitId": "h-read", "day": "2026-09-03" },
+    { "habitId": "h-read", "day": "2026-09-04" },
+    { "habitId": "h-run", "day": "2026-09-01" },
+    { "habitId": "h-run", "day": "2026-09-02" },
+    { "habitId": "h-run", "day": "2026-09-04" }
+  ]
+}

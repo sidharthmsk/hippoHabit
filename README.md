@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Habits
 
-## Getting Started
+A quiet, Notion-like habit tracker for one person. Check days off a list, watch streaks and a heatmap. No reminders, no accounts.
 
-First, run the development server:
+Unlock once per device with an access key. Data lives in a SQLite file on your server.
+
+## Run locally
 
 ```bash
+cp .env.example .env.local
+# set ACCESS_KEY, AUTH_SECRET (openssl rand -base64 32), APP_TIMEZONE
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) and enter the access key.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm test
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deploy on your server
 
-## Learn More
+```bash
+cp .env.example .env
+# edit ACCESS_KEY, AUTH_SECRET, APP_TIMEZONE
+docker compose up -d --build
+```
 
-To learn more about Next.js, take a look at the following resources:
+The app listens on port 3000. Put it behind HTTPS (Caddy, nginx, Traefik). Backup is the file `data/habits.db`, or export JSON from Settings. Import replaces all habits and check-ins.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Purpose |
+|---|---|
+| `ACCESS_KEY` | Shared unlock key |
+| `AUTH_SECRET` | Signs the session cookie |
+| `APP_TIMEZONE` | Calendar dates for check-ins (e.g. `Asia/Kolkata`) |
+| `DATABASE_PATH` | SQLite path (default `./data/habits.db`) |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## How it works
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Home is a list of habits grouped by group, with the last week as checkboxes (Beaver / Loop Habit style). Tap a cell to toggle that day. Open a habit for a year heatmap and current / longest streak. Add and edit habits on their own pages. Each habit has a High / Medium / Low priority.

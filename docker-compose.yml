@@ -1,0 +1,13 @@
+services:
+  habits:
+    build: .
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    environment:
+      ACCESS_KEY: ${ACCESS_KEY}
+      AUTH_SECRET: ${AUTH_SECRET}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Kolkata}
+      DATABASE_PATH: /app/data/habits.db
