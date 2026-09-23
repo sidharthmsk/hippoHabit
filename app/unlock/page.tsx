@@ -14,10 +14,11 @@ export default async function UnlockPage() {
     <div className="flex min-h-dvh items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <Image
-          src="/logo.png"
+          src="/logo.svg"
           alt=""
           width={48}
           height={48}
+          unoptimized
           className="mb-4 rounded-[12px]"
         />
         <h1 className="mb-1 text-[32px] font-semibold tracking-tight">hippoHabit</h1>

@@ -39,10 +39,11 @@ export function Shell({
             </svg>
           </button>
           <Image
-            src="/logo.png"
+            src="/logo.svg"
             alt=""
             width={22}
             height={22}
+            unoptimized
             className="rounded-[5px]"
           />
           <span className="text-[15px] font-semibold">hippoHabit</span>
