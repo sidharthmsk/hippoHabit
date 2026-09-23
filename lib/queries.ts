@@ -1,7 +1,8 @@
 import { and, eq, gte, inArray, isNotNull, isNull } from "drizzle-orm";
 import { getDb } from "./db";
 import { checkins, groups, habits } from "./db/schema";
-import { parsePriority, PRIORITY_RANK, type Priority } from "./priority";
+import { compareManual, sectionRank } from "./order";
+import { parsePriority, type Priority } from "./priority";
 import { currentStreak, longestStreak } from "./streaks";
 import { today } from "./timezone";
 import type { Group, HabitDetail, HabitListItem, NavData } from "./types";
@@ -11,7 +12,7 @@ export function listGroups(): Group[] {
   return db
     .select({ id: groups.id, name: groups.name })
     .from(groups)
-    .orderBy(groups.sortOrder, groups.name)
+    .orderBy(groups.sortOrder, groups.id)
     .all();
 }
 
@@ -50,7 +51,14 @@ export function listHabits(filter: ListFilter = {}): HabitListItem[] {
 
   const groupRows = listGroups();
   const groupById = new Map(groupRows.map((g) => [g.id, g.name]));
-  const groupRank = new Map(groupRows.map((g, i) => [g.id, i]));
+  const groupIndex = new Map(groupRows.map((g, index) => [g.id, index]));
+  filtered.sort((a, b) => {
+    const rank =
+      sectionRank(a.groupId, groupIndex, groupRows.length) -
+      sectionRank(b.groupId, groupIndex, groupRows.length);
+    if (rank !== 0) return rank;
+    return compareManual(a, b);
+  });
 
   const checkinQuery = db
     .select()
@@ -74,7 +82,7 @@ export function listHabits(filter: ListFilter = {}): HabitListItem[] {
 
   const todayDay = today();
 
-  const items: HabitListItem[] = filtered.map((h) => {
+  return filtered.map((h) => {
     const days = checkinsByHabit.get(h.id) ?? [];
     return {
       id: h.id,
@@ -87,18 +95,6 @@ export function listHabits(filter: ListFilter = {}): HabitListItem[] {
       currentStreak: currentStreak(days, todayDay),
     };
   });
-
-  items.sort((a, b) => {
-    const ga = a.groupId != null ? (groupRank.get(a.groupId) ?? 999) : 1000;
-    const gb = b.groupId != null ? (groupRank.get(b.groupId) ?? 999) : 1000;
-    if (ga !== gb) return ga - gb;
-    const pa = PRIORITY_RANK[a.priority];
-    const pb = PRIORITY_RANK[b.priority];
-    if (pa !== pb) return pa - pb;
-    return a.name.localeCompare(b.name);
-  });
-
-  return items;
 }
 
 export function getHabit(id: string): HabitDetail | null {

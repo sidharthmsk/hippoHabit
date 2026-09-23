@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import { materializeDisplayOrder } from "../order";
+import { parsePriority } from "../priority";
 import * as schema from "./schema";
 
 const SCHEMA_SQL = `
@@ -44,7 +46,7 @@ CREATE TABLE IF NOT EXISTS checkins (
 );
 `;
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 declare global {
   var __habitDb: ReturnType<typeof createDb> | undefined;
@@ -67,6 +69,56 @@ function migrate(sqlite: InstanceType<typeof Database>) {
     sqlite.exec(
       "ALTER TABLE habits ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'",
     );
+  }
+
+  const userVersion = sqlite.pragma("user_version", { simple: true }) as number;
+  if (userVersion < 3) {
+    const backfill = sqlite.transaction(() => {
+      const groupRows = sqlite
+        .prepare("SELECT id, name, sort_order AS sortOrder FROM groups")
+        .all() as { id: string; name: string; sortOrder: number }[];
+      const habitRows = sqlite
+        .prepare(
+          `SELECT id, name, group_id AS groupId, priority,
+                  sort_order AS sortOrder, created_at AS createdAt
+           FROM habits`,
+        )
+        .all() as {
+        id: string;
+        name: string;
+        groupId: string | null;
+        priority: string;
+        sortOrder: number;
+        createdAt: number;
+      }[];
+
+      const assigned = materializeDisplayOrder(
+        groupRows,
+        habitRows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          groupId: row.groupId,
+          priority: parsePriority(row.priority),
+          sortOrder: row.sortOrder,
+          createdAt: row.createdAt,
+        })),
+      );
+
+      const updateGroup = sqlite.prepare(
+        "UPDATE groups SET sort_order = ? WHERE id = ?",
+      );
+      for (const row of assigned.groups) {
+        updateGroup.run(row.sortOrder, row.id);
+      }
+      const updateHabit = sqlite.prepare(
+        "UPDATE habits SET sort_order = ? WHERE id = ?",
+      );
+      for (const row of assigned.habits) {
+        updateHabit.run(row.sortOrder, row.id);
+      }
+      sqlite.pragma("user_version = 3");
+    });
+    backfill();
   }
 }
 
