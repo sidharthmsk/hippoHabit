@@ -44,4 +44,4 @@ Home is a list of habits grouped by group, with the last week as checkboxes (Bea
 
 ## License
 
-[MIT](LICENSE)
+[Apache License 2.0](LICENSE)
