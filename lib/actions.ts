@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, max, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -8,9 +8,11 @@ import {
   requireUnlocked,
   unlockWithKey,
 } from "./auth";
+import { applyArrangement } from "./arrange";
 import { BackupError, importSnapshot } from "./backup";
 import { getDb } from "./db";
 import { checkins, groups, habits } from "./db/schema";
+import { nextSortOrder, OrderError, parseArrangement } from "./order";
 import { parsePriority } from "./priority";
 
 
@@ -61,6 +63,14 @@ export async function toggleCheckin(habitId: string, day: string) {
   revalidateAll();
 }
 
+export async function commitArrangement(input: unknown): Promise<void> {
+  await requireUnlocked();
+  const arrangement = parseArrangement(input);
+  if (!arrangement) throw new OrderError("malformed");
+  applyArrangement(getDb(), arrangement);
+  revalidateAll();
+}
+
 export async function createHabit(formData: FormData) {
   await requireUnlocked();
   const name = String(formData.get("name") ?? "").trim();
@@ -73,8 +83,6 @@ export async function createHabit(formData: FormData) {
   const db = getDb();
   const id = newId();
   const groupId = getOrCreateGroup(groupName);
-  const nextOrder =
-    db.select({ value: max(habits.sortOrder) }).from(habits).get()?.value ?? 0;
 
   db.insert(habits)
     .values({
@@ -82,7 +90,7 @@ export async function createHabit(formData: FormData) {
       name,
       groupId,
       priority,
-      sortOrder: nextOrder + 1,
+      sortOrder: nextHabitSortOrder(groupId),
       createdAt: Date.now(),
     })
     .run();
@@ -101,10 +109,22 @@ export async function updateHabit(habitId: string, formData: FormData) {
   const groupName = String(formData.get("group") ?? "").trim();
   const priority = parsePriority(formData.get("priority"));
   const db = getDb();
+  const current = db
+    .select({ groupId: habits.groupId })
+    .from(habits)
+    .where(eq(habits.id, habitId))
+    .get();
   const groupId = getOrCreateGroup(groupName);
 
   db.update(habits)
-    .set({ name, groupId, priority })
+    .set({
+      name,
+      groupId,
+      priority,
+      ...(current && current.groupId !== groupId
+        ? { sortOrder: nextHabitSortOrder(groupId) }
+        : {}),
+    })
     .where(eq(habits.id, habitId))
     .run();
 
@@ -176,17 +196,33 @@ function getOrCreateGroup(name: string): string | null {
     .get();
   if (existing) return existing.id;
   const id = newId();
-  const nextOrder =
-    db.select({ value: max(groups.sortOrder) }).from(groups).get()?.value ?? 0;
   db.insert(groups)
     .values({
       id,
       name,
-      sortOrder: nextOrder + 1,
+      sortOrder: nextGroupSortOrder(),
       createdAt: Date.now(),
     })
     .run();
   return id;
+}
+
+function nextHabitSortOrder(groupId: string | null): number {
+  const db = getDb();
+  const rows = db
+    .select({ sortOrder: habits.sortOrder })
+    .from(habits)
+    .where(
+      groupId === null ? isNull(habits.groupId) : eq(habits.groupId, groupId),
+    )
+    .all();
+  return nextSortOrder(rows.map((row) => row.sortOrder));
+}
+
+function nextGroupSortOrder(): number {
+  const db = getDb();
+  const rows = db.select({ sortOrder: groups.sortOrder }).from(groups).all();
+  return nextSortOrder(rows.map((row) => row.sortOrder));
 }
 
 function pruneUnused() {

@@ -9,6 +9,7 @@ export default function HomePage() {
       habits={habits}
       title="hippoHabit"
       empty="No habits yet."
+      arrange="active"
     />
   );
 }

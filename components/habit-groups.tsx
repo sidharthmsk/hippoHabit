@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { DayHeaders, HabitRow } from "./habit-row";
-import { writeCollapsedGroupsCookie } from "@/lib/collapsed-groups";
+import { ReorderGrip, useHabitLane } from "./reorder-lane";
+import {
+  UNGROUPED_GROUP_ID,
+  writeCollapsedGroupsCookie,
+} from "@/lib/collapsed-groups";
 import type { HabitListItem } from "@/lib/types";
 
 export type HabitGroupSection = {
@@ -16,6 +20,7 @@ type Props = {
   days: string[];
   today: string;
   collapsedIds: string[];
+  arrange?: "active" | "archived";
 };
 
 export function HabitGroups({
@@ -23,6 +28,7 @@ export function HabitGroups({
   days,
   today,
   collapsedIds: initialCollapsedIds,
+  arrange,
 }: Props) {
   const [collapsedIds, setCollapsedIds] = useState(
     () => new Set(initialCollapsedIds),
@@ -69,20 +75,65 @@ export function HabitGroups({
               {!collapsed && <DayHeaders days={days} today={today} flush />}
             </div>
             <div id={`group-${section.id}`} hidden={collapsed}>
-              {section.items.map((habit) => (
-                <HabitRow
-                  key={habit.id}
-                  habit={habit}
+              {arrange ? (
+                <ArrangedHabits
+                  section={section}
+                  arrange={arrange}
                   days={days}
                   today={today}
                 />
-              ))}
+              ) : (
+                section.items.map((habit) => (
+                  <HabitRow
+                    key={habit.id}
+                    habit={habit}
+                    days={days}
+                    today={today}
+                  />
+                ))
+              )}
             </div>
           </section>
         );
       })}
     </div>
   );
+}
+
+function ArrangedHabits({
+  section,
+  arrange,
+  days,
+  today,
+}: {
+  section: HabitGroupSection;
+  arrange: "active" | "archived";
+  days: string[];
+  today: string;
+}) {
+  const lane = useHabitLane(
+    section.id === UNGROUPED_GROUP_ID ? null : section.id,
+    arrange,
+    section.items.map((habit) => habit.id),
+  );
+  const byId = new Map(section.items.map((habit) => [habit.id, habit]));
+  return lane.ids.map((id) => {
+    const habit = byId.get(id);
+    if (!habit) return null;
+    return (
+      <HabitRow
+        key={id}
+        habit={habit}
+        days={days}
+        today={today}
+        handle={
+          lane.ids.length < 2 ? null : (
+            <ReorderGrip label={`Reorder ${habit.name}`} {...lane.grip(id)} />
+          )
+        }
+      />
+    );
+  });
 }
 
 function Chevron({ expanded }: { expanded: boolean }) {
