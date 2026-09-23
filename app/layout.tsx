@@ -8,11 +8,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Habits",
-  description: "A quiet daily habit tracker",
+  title: "Hippo",
+  description: "A quiet habit tracker for one person",
   appleWebApp: {
     capable: true,
-    title: "Habits",
+    title: "Hippo",
     statusBarStyle: "default",
   },
 };

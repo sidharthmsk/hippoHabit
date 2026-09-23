@@ -21,7 +21,7 @@ export default async function HabitPage({
         href="/"
         className="mb-6 inline-block text-sm text-muted hover:text-foreground"
       >
-        Habits
+        Hippo
       </Link>
       <div className="mb-2 flex items-start justify-between gap-4">
         <h1 className="text-[32px] font-semibold tracking-tight md:text-[40px]">

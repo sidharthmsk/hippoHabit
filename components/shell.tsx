@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { Sidebar } from "./sidebar";
 import type { NavData } from "@/lib/types";
@@ -37,7 +38,14 @@ export function Shell({
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
-          <span className="text-[15px] font-semibold">Habits</span>
+          <Image
+            src="/logo.png"
+            alt=""
+            width={22}
+            height={22}
+            className="rounded-[5px]"
+          />
+          <span className="text-[15px] font-semibold">Hippo</span>
         </header>
         <main className="min-h-0 flex-1">{children}</main>
       </div>

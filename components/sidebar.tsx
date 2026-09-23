@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/priority";
@@ -15,8 +16,15 @@ export function Sidebar({ nav, onNavigate }: Props) {
 
   return (
     <nav className="flex h-full flex-col px-2 py-3 text-sm">
-      <div className="mb-4 px-2 text-[15px] font-semibold tracking-tight">
-        Habits
+      <div className="mb-4 flex items-center gap-2 px-2">
+        <Image
+          src="/logo.png"
+          alt=""
+          width={22}
+          height={22}
+          className="rounded-[5px]"
+        />
+        <span className="text-[15px] font-semibold tracking-tight">Hippo</span>
       </div>
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
         <Section>

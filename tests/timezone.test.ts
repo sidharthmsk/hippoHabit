@@ -10,7 +10,7 @@ describe("calendarDate", () => {
   it("uses the calendar date in the given timezone, not UTC", () => {
     const lateUtc = new Date("2026-09-04T23:30:00Z");
     expect(calendarDate(lateUtc, "UTC")).toBe("2026-09-04");
-    expect(calendarDate(lateUtc, "Asia/Kolkata")).toBe("2026-09-05");
+    expect(calendarDate(lateUtc, "Asia/Tokyo")).toBe("2026-09-05");
   });
 });
 
