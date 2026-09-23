@@ -12,6 +12,7 @@ export default function ArchivedPage() {
       habits={habits}
       title="Archived"
       empty="Nothing archived."
+      arrange="archived"
     />
   );
 }

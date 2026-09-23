@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { CheckCell } from "./check-cell";
 import { PriorityMark } from "./priority-mark";
@@ -8,6 +9,7 @@ type Props = {
   habit: HabitListItem;
   days: string[];
   today: string;
+  handle?: ReactNode;
 };
 
 export function DayHeaders({
@@ -42,11 +44,12 @@ export function DayHeaders({
   );
 }
 
-export function HabitRow({ habit, days, today }: Props) {
+export function HabitRow({ habit, days, today, handle }: Props) {
   const done = new Set(habit.checkins);
 
   return (
     <div className="group flex items-center gap-1 border-b border-border py-1.5">
+      {handle}
       <div className="min-w-0 flex-1 pr-2">
         <div className="flex min-w-0 items-baseline gap-2">
           <Link

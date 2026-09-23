@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ReorderGrip, useGroupLane } from "./reorder-lane";
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/priority";
 import type { NavData } from "@/lib/types";
 
@@ -13,6 +14,8 @@ type Props = {
 
 export function Sidebar({ nav, onNavigate }: Props) {
   const pathname = usePathname();
+  const groups = useGroupLane(nav.groups.map((group) => group.id));
+  const groupById = new Map(nav.groups.map((group) => [group.id, group]));
 
   return (
     <nav className="flex h-full flex-col px-2 py-3 text-sm">
@@ -42,16 +45,28 @@ export function Sidebar({ nav, onNavigate }: Props) {
 
         {nav.groups.length > 0 && (
           <Section label="Groups">
-            {nav.groups.map((group) => (
-              <NavLink
-                key={group.id}
-                href={`/g/${group.id}`}
-                active={pathname === `/g/${group.id}`}
-                onNavigate={onNavigate}
-              >
-                {group.name}
-              </NavLink>
-            ))}
+            {groups.ids.map((id) => {
+              const group = groupById.get(id);
+              if (!group) return null;
+              return (
+                <div key={id} className="flex items-center">
+                  {groups.ids.length > 1 ? (
+                    <ReorderGrip
+                      label={`Reorder ${group.name}`}
+                      {...groups.grip(id)}
+                    />
+                  ) : null}
+                  <NavLink
+                    href={`/g/${group.id}`}
+                    active={pathname === `/g/${group.id}`}
+                    onNavigate={onNavigate}
+                    className="min-w-0 flex-1"
+                  >
+                    {group.name}
+                  </NavLink>
+                </div>
+              );
+            })}
           </Section>
         )}
 
@@ -112,17 +127,19 @@ function NavLink({
   active,
   children,
   onNavigate,
+  className,
 }: {
   href: string;
   active: boolean;
   children: React.ReactNode;
   onNavigate?: () => void;
+  className?: string;
 }) {
   return (
     <Link
       href={href}
       onClick={onNavigate}
-      className={`rounded-[4px] px-2 py-1.5 leading-5 ${
+      className={`rounded-[4px] px-2 py-1.5 leading-5 ${className ?? ""} ${
         active
           ? "bg-hover font-medium text-foreground"
           : "text-foreground/80 hover:bg-hover"

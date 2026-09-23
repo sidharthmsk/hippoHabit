@@ -21,6 +21,7 @@ export default async function GroupPage({
       title={group.name}
       empty="No habits in this group."
       grouped={false}
+      arrange="active"
     />
   );
 }

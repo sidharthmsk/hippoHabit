@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { HabitGroups, type HabitGroupSection } from "./habit-groups";
+import { HabitLane } from "./habit-lane";
 import { DayHeaders, HabitRow } from "./habit-row";
 import {
   parseCollapsedGroups,
@@ -15,6 +16,7 @@ type Props = {
   title: string;
   empty: string;
   grouped?: boolean;
+  arrange?: "active" | "archived";
 };
 
 export async function HabitList({
@@ -22,6 +24,7 @@ export async function HabitList({
   title,
   empty,
   grouped = true,
+  arrange,
 }: Props) {
   const today = todayStamp();
   const days = recentDays(7);
@@ -61,7 +64,18 @@ export async function HabitList({
           days={days}
           today={today}
           collapsedIds={collapsedIds}
+          arrange={arrange}
         />
+      ) : arrange ? (
+        <div>
+          <DayHeaders days={days} today={today} />
+          <HabitLane
+            habits={habits}
+            days={days}
+            today={today}
+            shown={arrange}
+          />
+        </div>
       ) : (
         <div>
           <DayHeaders days={days} today={today} />
