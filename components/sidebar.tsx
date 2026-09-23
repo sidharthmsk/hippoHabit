@@ -18,11 +18,10 @@ export function Sidebar({ nav, onNavigate }: Props) {
     <nav className="flex h-full flex-col px-2 py-3 text-sm">
       <div className="mb-4 flex items-center gap-2 px-2">
         <Image
-          src="/logo.svg"
+          src="/logo.png"
           alt=""
           width={22}
           height={22}
-          unoptimized
           className="rounded-[5px]"
         />
         <span className="text-[15px] font-semibold tracking-tight">hippoHabit</span>
