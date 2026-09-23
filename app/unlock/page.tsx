@@ -20,7 +20,7 @@ export default async function UnlockPage() {
           height={48}
           className="mb-4 rounded-[12px]"
         />
-        <h1 className="mb-1 text-[32px] font-semibold tracking-tight">Hippo</h1>
+        <h1 className="mb-1 text-[32px] font-semibold tracking-tight">hippoHabit</h1>
         <p className="mb-8 text-sm text-muted">Enter your key to unlock this device.</p>
         {misconfigured ? (
           <p className="text-sm text-red-700 dark:text-red-400">

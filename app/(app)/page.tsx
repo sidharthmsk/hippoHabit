@@ -7,7 +7,7 @@ export default function HomePage() {
   return (
     <HabitList
       habits={habits}
-      title="Hippo"
+      title="hippoHabit"
       empty="No habits yet."
     />
   );

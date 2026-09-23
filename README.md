@@ -1,6 +1,6 @@
-# Hippo
+# hippoHabit
 
-![Hippo](public/logo.png)
+![hippoHabit](public/logo.png)
 
 A quiet habit tracker for one person. Check days off a list, watch streaks and a heatmap. No reminders, no accounts. The week of checkboxes follows [Beaver Habit Tracker](https://github.com/daya0576/beaverhabits) and Loop Habit Tracker.
 

@@ -45,7 +45,7 @@ export function Shell({
             height={22}
             className="rounded-[5px]"
           />
-          <span className="text-[15px] font-semibold">Hippo</span>
+          <span className="text-[15px] font-semibold">hippoHabit</span>
         </header>
         <main className="min-h-0 flex-1">{children}</main>
       </div>

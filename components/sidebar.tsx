@@ -24,7 +24,7 @@ export function Sidebar({ nav, onNavigate }: Props) {
           height={22}
           className="rounded-[5px]"
         />
-        <span className="text-[15px] font-semibold tracking-tight">Hippo</span>
+        <span className="text-[15px] font-semibold tracking-tight">hippoHabit</span>
       </div>
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
         <Section>
