@@ -1,7 +1,9 @@
-import { asc } from "drizzle-orm";
-import type { DatabaseClient } from "./db";
-import { checkins, groups, habitTags, habits, tags } from "./db/schema";
+import { asc, max, sql } from "drizzle-orm";
+import type { DatabaseClient, DbOrTx } from "./db";
+import { checkins, groups, habits } from "./db/schema";
+import { findOrCreateGroup } from "./groups";
 import { isPriority, type Priority } from "./priority";
+import { isValidDay } from "./timezone";
 
 export class BackupError extends Error {
   constructor(message: string) {
@@ -27,51 +29,60 @@ export type BackupHabit = {
   createdAt: number;
 };
 
-export type BackupTag = {
-  id: string;
-  name: string;
-};
-
-export type BackupHabitTag = {
-  habitId: string;
-  tagId: string;
-};
-
 export type BackupCheckin = {
   habitId: string;
   day: string;
 };
 
 export type BackupSnapshot = {
-  version: 1;
+  version: 2;
   exportedAt?: string;
   groups: BackupGroup[];
   habits: BackupHabit[];
-  tags: BackupTag[];
-  habitTags: BackupHabitTag[];
   checkins: BackupCheckin[];
 };
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
+export type ImportResult =
+  | { format: "hippohabit"; habits: number }
+  | { format: "beaver"; added: number; merged: number };
+
+/** Rows per INSERT. Keeps each statement well under SQLite's variable limit. */
+const CHUNK = 500;
+
+/**
+ * Import a file from either hippoHabit (replaces everything) or Beaver Habits
+ * (merged into what is already here). The format is detected from the JSON.
+ */
+export function importFile(
+  db: DatabaseClient,
+  input: unknown,
+  today: string,
+): ImportResult {
+  const value = typeof input === "string" ? parseJson(input) : input;
+  if (isBeaverExport(value)) {
+    return { format: "beaver", ...mergeBeaver(db, parseBeaver(value), today) };
+  }
+  const parsed = parseBackup(value);
+  importSnapshot(db, parsed);
+  return { format: "hippohabit", habits: parsed.habits.length };
+}
 
 export function parseBackup(input: unknown): BackupSnapshot {
   const value = typeof input === "string" ? parseJson(input) : input;
   if (!isRecord(value)) {
     throw new BackupError("Backup file is not valid JSON.");
   }
-  if (value.version !== 1) {
+  // Version 1 also carried tags, which were never used; they are ignored.
+  if (value.version !== 1 && value.version !== 2) {
     throw new BackupError("This backup file is not supported.");
   }
 
   const groupRows = asArray(value.groups, "groups").map(parseGroup);
   const habitRows = asArray(value.habits, "habits").map(parseHabit);
-  const tagRows = asArray(value.tags, "tags").map(parseTag);
-  const habitTagRows = asArray(value.habitTags, "habitTags").map(parseHabitTag);
   const checkinRows = asArray(value.checkins, "checkins").map(parseCheckin);
 
   const groupIds = new Set(groupRows.map((row) => row.id));
   const habitIds = new Set(habitRows.map((row) => row.id));
-  const tagIds = new Set(tagRows.map((row) => row.id));
 
   if (groupIds.size !== groupRows.length) {
     throw new BackupError("Backup has duplicate groups.");
@@ -79,18 +90,10 @@ export function parseBackup(input: unknown): BackupSnapshot {
   if (habitIds.size !== habitRows.length) {
     throw new BackupError("Backup has duplicate habits.");
   }
-  if (tagIds.size !== tagRows.length) {
-    throw new BackupError("Backup has duplicate tags.");
-  }
 
   for (const habit of habitRows) {
     if (habit.groupId && !groupIds.has(habit.groupId)) {
       throw new BackupError("Backup refers to a missing group.");
-    }
-  }
-  for (const link of habitTagRows) {
-    if (!habitIds.has(link.habitId) || !tagIds.has(link.tagId)) {
-      throw new BackupError("Backup refers to a missing tag or habit.");
     }
   }
   for (const checkin of checkinRows) {
@@ -100,20 +103,18 @@ export function parseBackup(input: unknown): BackupSnapshot {
   }
 
   return {
-    version: 1,
+    version: 2,
     exportedAt:
       typeof value.exportedAt === "string" ? value.exportedAt : undefined,
     groups: groupRows,
     habits: habitRows,
-    tags: tagRows,
-    habitTags: habitTagRows,
-    checkins: checkinRows,
+    checkins: dedupeCheckins(checkinRows),
   };
 }
 
 export function exportSnapshot(db: DatabaseClient): BackupSnapshot {
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     groups: db
       .select()
@@ -129,12 +130,6 @@ export function exportSnapshot(db: DatabaseClient): BackupSnapshot {
         ...row,
         priority: isPriority(row.priority) ? row.priority : "medium",
       })),
-    tags: db.select().from(tags).orderBy(asc(tags.name), asc(tags.id)).all(),
-    habitTags: db
-      .select()
-      .from(habitTags)
-      .orderBy(asc(habitTags.habitId), asc(habitTags.tagId))
-      .all(),
     checkins: db
       .select()
       .from(checkins)
@@ -147,26 +142,158 @@ export function importSnapshot(db: DatabaseClient, input: unknown): void {
   const parsed = parseBackup(input);
   db.transaction((tx) => {
     tx.delete(checkins).run();
-    tx.delete(habitTags).run();
     tx.delete(habits).run();
-    tx.delete(tags).run();
     tx.delete(groups).run();
 
-    if (parsed.groups.length > 0) {
-      tx.insert(groups).values(parsed.groups).run();
+    for (const rows of chunks(parsed.groups)) tx.insert(groups).values(rows).run();
+    for (const rows of chunks(parsed.habits)) tx.insert(habits).values(rows).run();
+    for (const rows of chunks(parsed.checkins)) {
+      tx.insert(checkins).values(rows).run();
     }
-    if (parsed.habits.length > 0) {
-      tx.insert(habits).values(parsed.habits).run();
+  });
+}
+
+/* ---------- Beaver Habits ---------- */
+
+export type BeaverHabit = {
+  id: string | null;
+  name: string;
+  group: string;
+  starred: boolean;
+  archived: boolean;
+  days: string[];
+};
+
+/** Beaver exports are `{ habits: [{ name, records: [...] }], order?: [...] }` with no version. */
+export function isBeaverExport(value: unknown): value is Record<string, unknown> {
+  return (
+    isRecord(value) &&
+    value.version === undefined &&
+    Array.isArray(value.habits) &&
+    value.habits.every((habit) => isRecord(habit) && Array.isArray(habit.records))
+  );
+}
+
+export function parseBeaver(value: unknown): BeaverHabit[] {
+  if (!isBeaverExport(value)) {
+    throw new BackupError("This is not a Beaver Habits export.");
+  }
+  const order = Array.isArray(value.order)
+    ? value.order.filter((id): id is string => typeof id === "string")
+    : [];
+  const rank = (id: string | null) => {
+    const index = id ? order.indexOf(id) : -1;
+    return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+  };
+
+  const parsed = (value.habits as Record<string, unknown>[])
+    .filter((habit) => habit.status !== "soft_delete")
+    .map((habit): BeaverHabit => {
+      const name = requiredName(habit.name, "Beaver habit");
+      const tags = Array.isArray(habit.tags) ? habit.tags : [];
+      const days = (habit.records as unknown[]).flatMap((record) => {
+        if (!isRecord(record) || typeof record.day !== "string") {
+          throw new BackupError(`"${name}" has an invalid record.`);
+        }
+        if (!isValidDay(record.day)) {
+          throw new BackupError(`"${name}" has an invalid date: ${record.day}.`);
+        }
+        return record.done === true ? [record.day] : [];
+      });
+      return {
+        id: typeof habit.id === "string" ? habit.id : null,
+        name: name.trim(),
+        group: typeof tags[0] === "string" ? tags[0].trim() : "",
+        starred: habit.star === true,
+        archived: habit.status === "archive",
+        days: [...new Set(days)],
+      };
+    });
+
+  if (parsed.length === 0) {
+    throw new BackupError("The Beaver Habits file has no habits.");
+  }
+  // Stable sort: habits missing from `order` keep their file order at the end.
+  return parsed
+    .map((habit, index) => ({ habit, index }))
+    .sort((a, b) => rank(a.habit.id) - rank(b.habit.id) || a.index - b.index)
+    .map(({ habit }) => habit);
+}
+
+/**
+ * Add Beaver habits, or merge check-ins into an existing habit with the same
+ * name (case-insensitive). Nothing already here is removed. Future days are
+ * skipped.
+ */
+export function mergeBeaver(
+  db: DatabaseClient,
+  beaverHabits: BeaverHabit[],
+  today: string,
+): { added: number; merged: number } {
+  let added = 0;
+  let merged = 0;
+  db.transaction((tx) => {
+    let nextOrder =
+      (tx.select({ value: max(habits.sortOrder) }).from(habits).get()?.value ??
+        0) + 1;
+    for (const beaver of beaverHabits) {
+      const existing = tx
+        .select({ id: habits.id })
+        .from(habits)
+        .where(sql`lower(${habits.name}) = ${beaver.name.toLowerCase()}`)
+        .get();
+
+      let habitId: string;
+      if (existing) {
+        habitId = existing.id;
+        merged += 1;
+      } else {
+        habitId = crypto.randomUUID();
+        const now = Date.now();
+        tx.insert(habits)
+          .values({
+            id: habitId,
+            name: beaver.name,
+            groupId: findOrCreateGroup(tx, beaver.group),
+            priority: beaver.starred ? "high" : "medium",
+            sortOrder: nextOrder++,
+            archivedAt: beaver.archived ? now : null,
+            createdAt: now,
+          })
+          .run();
+        added += 1;
+      }
+
+      const rows = beaver.days
+        .filter((day) => day <= today)
+        .map((day) => ({ habitId, day }));
+      insertCheckins(tx, rows);
     }
-    if (parsed.tags.length > 0) {
-      tx.insert(tags).values(parsed.tags).run();
-    }
-    if (parsed.habitTags.length > 0) {
-      tx.insert(habitTags).values(parsed.habitTags).run();
-    }
-    if (parsed.checkins.length > 0) {
-      tx.insert(checkins).values(parsed.checkins).run();
-    }
+  });
+  return { added, merged };
+}
+
+function insertCheckins(db: DbOrTx, rows: BackupCheckin[]) {
+  for (const chunk of chunks(rows)) {
+    db.insert(checkins).values(chunk).onConflictDoNothing().run();
+  }
+}
+
+/* ---------- helpers ---------- */
+
+function* chunks<T>(rows: T[]): Generator<T[]> {
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    yield rows.slice(i, i + CHUNK);
+  }
+}
+
+function dedupeCheckins(rows: BackupCheckin[]): BackupCheckin[] {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    const key = `${row.habitId}\n${row.day}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
 }
 
@@ -230,31 +357,11 @@ function parseHabit(value: unknown): BackupHabit {
   };
 }
 
-function parseTag(value: unknown): BackupTag {
-  if (!isRecord(value)) {
-    throw new BackupError("Backup has an invalid tag.");
-  }
-  return {
-    id: requiredId(value.id, "tag"),
-    name: requiredName(value.name, "tag"),
-  };
-}
-
-function parseHabitTag(value: unknown): BackupHabitTag {
-  if (!isRecord(value)) {
-    throw new BackupError("Backup has an invalid tag link.");
-  }
-  return {
-    habitId: requiredId(value.habitId, "tag link"),
-    tagId: requiredId(value.tagId, "tag link"),
-  };
-}
-
 function parseCheckin(value: unknown): BackupCheckin {
   if (!isRecord(value)) {
     throw new BackupError("Backup has an invalid check-in.");
   }
-  if (typeof value.day !== "string" || !DAY.test(value.day)) {
+  if (typeof value.day !== "string" || !isValidDay(value.day)) {
     throw new BackupError("Backup has an invalid check-in date.");
   }
   return {

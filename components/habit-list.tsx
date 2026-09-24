@@ -8,11 +8,13 @@ import {
   UNGROUPED_GROUP_ID,
 } from "@/lib/collapsed-groups";
 import type { HabitListItem } from "@/lib/types";
+import { VISIBLE_DAYS } from "@/lib/queries";
 import { recentDays, today as todayStamp } from "@/lib/timezone";
 
 type Props = {
   habits: HabitListItem[];
-  title: string;
+  /** Omit to show today's progress instead of a heading. */
+  title?: string;
   empty: string;
   grouped?: boolean;
 };
@@ -24,7 +26,7 @@ export async function HabitList({
   grouped = true,
 }: Props) {
   const today = todayStamp();
-  const days = recentDays(7);
+  const days = recentDays(VISIBLE_DAYS);
   const collapsedIds = grouped
     ? [
         ...parseCollapsedGroups(
@@ -36,9 +38,13 @@ export async function HabitList({
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8 md:py-12">
       <div className="mb-6 flex items-baseline justify-between gap-4">
-        <h1 className="text-[32px] font-semibold tracking-tight md:text-[40px]">
-          {title}
-        </h1>
+        {title ? (
+          <h1 className="text-[32px] font-semibold tracking-tight md:text-[40px]">
+            {title}
+          </h1>
+        ) : (
+          <TodayProgress habits={habits} today={today} />
+        )}
         <Link
           href="/habits/new"
           className="text-sm text-muted hover:text-foreground"
@@ -77,6 +83,41 @@ export async function HabitList({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function TodayProgress({
+  habits,
+  today,
+}: {
+  habits: HabitListItem[];
+  today: string;
+}) {
+  const done = habits.filter((habit) => habit.recent.includes(today)).length;
+  const total = habits.length;
+  return (
+    <div className="min-w-0 flex-1">
+      <h1 className="sr-only">Today</h1>
+      <p className="text-sm text-muted">
+        <span className="font-medium tabular-nums text-foreground">
+          {done}/{total}
+        </span>{" "}
+        done today
+      </p>
+      <div
+        className="mt-2 h-1 max-w-48 overflow-hidden rounded-full bg-border"
+        role="progressbar"
+        aria-label="Habits done today"
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={done}
+      >
+        <div
+          className="h-full rounded-full bg-done transition-[width]"
+          style={{ width: total ? `${(done / total) * 100}%` : "0%" }}
+        />
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, max, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, max } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -8,24 +8,26 @@ import {
   requireUnlocked,
   unlockWithKey,
 } from "./auth";
-import { BackupError, importSnapshot } from "./backup";
+import { BackupError, importFile } from "./backup";
 import { getDb } from "./db";
 import { checkins, groups, habits } from "./db/schema";
+import { findOrCreateGroup, pruneEmptyGroups } from "./groups";
 import { parsePriority } from "./priority";
+import { isValidDay, today } from "./timezone";
 
+export type FormState = { error?: string; message?: string } | undefined;
 
-function newId() {
-  return crypto.randomUUID();
-}
+const MAX_NAME = 100;
+const MAX_GROUP = 60;
 
 function revalidateAll() {
   revalidatePath("/", "layout");
 }
 
 export async function unlockAction(
-  _prev: { error?: string } | undefined,
+  _prev: FormState,
   formData: FormData,
-): Promise<{ error?: string }> {
+): Promise<FormState> {
   const key = String(formData.get("key") ?? "");
   if (!key) return { error: "Enter your key." };
   const ok = await unlockWithKey(key);
@@ -38,85 +40,117 @@ export async function logoutAction() {
   redirect("/unlock");
 }
 
-export async function toggleCheckin(habitId: string, day: string) {
+/**
+ * Mark a day done or not done. Idempotent, so retries and double taps are
+ * safe. Returns an error instead of throwing, because production builds hide
+ * thrown messages from the client.
+ */
+export async function setCheckin(
+  habitId: string,
+  day: string,
+  done: boolean,
+): Promise<{ error?: string }> {
   await requireUnlocked();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
-    throw new Error("Invalid day");
+  if (!isValidDay(day)) {
+    return { error: "That is not a valid date." };
+  }
+  if (day > today()) {
+    return { error: "You can't check off a future day." };
   }
   const db = getDb();
-  const existing = db
-    .select()
-    .from(checkins)
-    .where(and(eq(checkins.habitId, habitId), eq(checkins.day, day)))
+  const habit = db
+    .select({ id: habits.id })
+    .from(habits)
+    .where(eq(habits.id, habitId))
     .get();
+  if (!habit) {
+    return { error: "This habit no longer exists." };
+  }
 
-  if (existing) {
+  if (done) {
+    db.insert(checkins).values({ habitId, day }).onConflictDoNothing().run();
+  } else {
     db.delete(checkins)
       .where(and(eq(checkins.habitId, habitId), eq(checkins.day, day)))
       .run();
-  } else {
-    db.insert(checkins).values({ habitId, day }).run();
   }
-
   revalidateAll();
+  return {};
 }
 
-export async function createHabit(formData: FormData) {
-  await requireUnlocked();
+type HabitFields = {
+  name: string;
+  groupName: string;
+  priority: ReturnType<typeof parsePriority>;
+};
+
+function readHabitForm(formData: FormData): HabitFields | { error: string } {
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) {
-    throw new Error("Name is required");
-  }
   const groupName = String(formData.get("group") ?? "").trim();
-  const priority = parsePriority(formData.get("priority"));
+  if (!name) return { error: "Give the habit a name." };
+  if (name.length > MAX_NAME) {
+    return { error: `Keep the name under ${MAX_NAME} characters.` };
+  }
+  if (groupName.length > MAX_GROUP) {
+    return { error: `Keep the group under ${MAX_GROUP} characters.` };
+  }
+  return { name, groupName, priority: parsePriority(formData.get("priority")) };
+}
+
+export async function createHabit(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  await requireUnlocked();
+  const fields = readHabitForm(formData);
+  if ("error" in fields) return fields;
 
   const db = getDb();
-  const id = newId();
-  const groupId = getOrCreateGroup(groupName);
-  const nextOrder =
+  const last =
     db.select({ value: max(habits.sortOrder) }).from(habits).get()?.value ?? 0;
-
   db.insert(habits)
     .values({
-      id,
-      name,
-      groupId,
-      priority,
-      sortOrder: nextOrder + 1,
+      id: crypto.randomUUID(),
+      name: fields.name,
+      groupId: findOrCreateGroup(db, fields.groupName),
+      priority: fields.priority,
+      sortOrder: last + 1,
       createdAt: Date.now(),
     })
     .run();
 
-  pruneUnused();
   revalidateAll();
   redirect("/");
 }
 
-export async function updateHabit(habitId: string, formData: FormData) {
+export async function updateHabit(
+  habitId: string,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
   await requireUnlocked();
-  const name = String(formData.get("name") ?? "").trim();
-  if (!name) {
-    throw new Error("Name is required");
-  }
-  const groupName = String(formData.get("group") ?? "").trim();
-  const priority = parsePriority(formData.get("priority"));
-  const db = getDb();
-  const groupId = getOrCreateGroup(groupName);
+  const fields = readHabitForm(formData);
+  if ("error" in fields) return fields;
 
+  const db = getDb();
   db.update(habits)
-    .set({ name, groupId, priority })
+    .set({
+      name: fields.name,
+      groupId: findOrCreateGroup(db, fields.groupName),
+      priority: fields.priority,
+    })
     .where(eq(habits.id, habitId))
     .run();
 
-  pruneUnused();
+  pruneEmptyGroups(db);
   revalidateAll();
   redirect(`/habits/${habitId}`);
 }
 
 export async function archiveHabit(habitId: string) {
   await requireUnlocked();
-  const db = getDb();
-  db.update(habits)
+  getDb()
+    .update(habits)
     .set({ archivedAt: Date.now() })
     .where(eq(habits.id, habitId))
     .run();
@@ -126,8 +160,8 @@ export async function archiveHabit(habitId: string) {
 
 export async function unarchiveHabit(habitId: string) {
   await requireUnlocked();
-  const db = getDb();
-  db.update(habits)
+  getDb()
+    .update(habits)
     .set({ archivedAt: null })
     .where(eq(habits.id, habitId))
     .run();
@@ -139,23 +173,92 @@ export async function deleteHabit(habitId: string) {
   await requireUnlocked();
   const db = getDb();
   db.delete(habits).where(eq(habits.id, habitId)).run();
-  pruneUnused();
+  pruneEmptyGroups(db);
   revalidateAll();
   redirect("/");
 }
 
+type Direction = "up" | "down";
+
+/** Swap a habit with its neighbour among active habits in the same group. */
+export async function moveHabit(habitId: string, direction: Direction) {
+  await requireUnlocked();
+  const db = getDb();
+  const habit = db.select().from(habits).where(eq(habits.id, habitId)).get();
+  if (!habit) return;
+  db.transaction((tx) => {
+    const siblings = tx
+      .select({ id: habits.id })
+      .from(habits)
+      .where(
+        and(
+          habit.groupId
+            ? eq(habits.groupId, habit.groupId)
+            : isNull(habits.groupId),
+          habit.archivedAt == null
+            ? isNull(habits.archivedAt)
+            : isNotNull(habits.archivedAt),
+        ),
+      )
+      .orderBy(asc(habits.sortOrder), asc(habits.createdAt))
+      .all()
+      .map((row) => row.id);
+    // Renumber the whole group so duplicate sort values can't block a move.
+    reorder(siblings, habitId, direction).forEach((id, index) => {
+      tx.update(habits)
+        .set({ sortOrder: index + 1 })
+        .where(eq(habits.id, id))
+        .run();
+    });
+  });
+  revalidateAll();
+}
+
+export async function moveGroup(groupId: string, direction: Direction) {
+  await requireUnlocked();
+  const db = getDb();
+  db.transaction((tx) => {
+    const ids = tx
+      .select({ id: groups.id })
+      .from(groups)
+      .orderBy(asc(groups.sortOrder), asc(groups.name))
+      .all()
+      .map((row) => row.id);
+    reorder(ids, groupId, direction).forEach((id, index) => {
+      tx.update(groups)
+        .set({ sortOrder: index + 1 })
+        .where(eq(groups.id, id))
+        .run();
+    });
+  });
+  revalidateAll();
+}
+
+function reorder(ids: string[], id: string, direction: Direction): string[] {
+  const from = ids.indexOf(id);
+  const to = direction === "up" ? from - 1 : from + 1;
+  if (from < 0 || to < 0 || to >= ids.length) return ids;
+  const next = [...ids];
+  [next[from], next[to]] = [next[to], next[from]];
+  return next;
+}
+
 export async function importBackupAction(
-  _prev: { error?: string } | undefined,
+  _prev: FormState,
   formData: FormData,
-): Promise<{ error?: string }> {
+): Promise<FormState> {
   await requireUnlocked();
   const file = formData.get("backup");
   if (!file || typeof file === "string" || file.size === 0) {
     return { error: "Choose a backup file." };
   }
-  const text = await file.text();
+  let message: string;
   try {
-    importSnapshot(getDb(), text);
+    const result = importFile(getDb(), await file.text(), today());
+    message =
+      result.format === "beaver"
+        ? `Imported from Beaver Habits: ${plural(result.added, "habit")} added, ${plural(result.merged, "habit")} merged.`
+        : `Imported ${plural(result.habits, "habit")}. Existing data was replaced.`;
   } catch (error) {
     if (error instanceof BackupError) {
       return { error: error.message };
@@ -163,35 +266,9 @@ export async function importBackupAction(
     throw error;
   }
   revalidateAll();
-  redirect("/settings?imported=1");
+  return { message };
 }
 
-function getOrCreateGroup(name: string): string | null {
-  if (!name) return null;
-  const db = getDb();
-  const existing = db
-    .select()
-    .from(groups)
-    .where(sql`lower(${groups.name}) = ${name.toLowerCase()}`)
-    .get();
-  if (existing) return existing.id;
-  const id = newId();
-  const nextOrder =
-    db.select({ value: max(groups.sortOrder) }).from(groups).get()?.value ?? 0;
-  db.insert(groups)
-    .values({
-      id,
-      name,
-      sortOrder: nextOrder + 1,
-      createdAt: Date.now(),
-    })
-    .run();
-  return id;
-}
-
-function pruneUnused() {
-  const db = getDb();
-  db.run(
-    sql`DELETE FROM groups WHERE id NOT IN (SELECT group_id FROM habits WHERE group_id IS NOT NULL)`,
-  );
+function plural(count: number, word: string) {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
 }

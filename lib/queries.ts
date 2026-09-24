@@ -1,17 +1,19 @@
-import { and, eq, gte, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { getDb } from "./db";
 import { checkins, groups, habits } from "./db/schema";
-import { parsePriority, PRIORITY_RANK, type Priority } from "./priority";
+import { parsePriority, type Priority } from "./priority";
 import { currentStreak, longestStreak } from "./streaks";
-import { today } from "./timezone";
+import { addDays, calendarDate, getAppTimezone, today } from "./timezone";
 import type { Group, HabitDetail, HabitListItem, NavData } from "./types";
 
+/** Days of history shown as checkboxes on list pages. */
+export const VISIBLE_DAYS = 7;
+
 export function listGroups(): Group[] {
-  const db = getDb();
-  return db
+  return getDb()
     .select({ id: groups.id, name: groups.name })
     .from(groups)
-    .orderBy(groups.sortOrder, groups.name)
+    .orderBy(asc(groups.sortOrder), asc(groups.name))
     .all();
 }
 
@@ -23,116 +25,119 @@ type ListFilter = {
   archived?: boolean;
   groupId?: string;
   priority?: Priority;
-  sinceDay?: string;
 };
 
+/** Habits in display order: by group order, then the habit's own order. */
 export function listHabits(filter: ListFilter = {}): HabitListItem[] {
   const db = getDb();
-  const archived = filter.archived ?? false;
+  const conditions = [
+    filter.archived ? isNotNull(habits.archivedAt) : isNull(habits.archivedAt),
+  ];
+  if (filter.groupId) conditions.push(eq(habits.groupId, filter.groupId));
+  if (filter.priority) conditions.push(eq(habits.priority, filter.priority));
 
   const rows = db
     .select()
     .from(habits)
-    .where(archived ? isNotNull(habits.archivedAt) : isNull(habits.archivedAt))
-    .orderBy(habits.sortOrder, habits.createdAt)
+    .where(and(...conditions))
+    .orderBy(asc(habits.sortOrder), asc(habits.createdAt))
     .all();
-
-  let filtered = rows;
-  if (filter.groupId) {
-    filtered = filtered.filter((h) => h.groupId === filter.groupId);
-  }
-  if (filter.priority) {
-    filtered = filtered.filter((h) => parsePriority(h.priority) === filter.priority);
-  }
-
-  const ids = filtered.map((h) => h.id);
-  if (ids.length === 0) return [];
+  if (rows.length === 0) return [];
 
   const groupRows = listGroups();
-  const groupById = new Map(groupRows.map((g) => [g.id, g.name]));
+  const groupName = new Map(groupRows.map((g) => [g.id, g.name]));
   const groupRank = new Map(groupRows.map((g, i) => [g.id, i]));
 
-  const checkinQuery = db
-    .select()
-    .from(checkins)
-    .where(
-      filter.sinceDay
-        ? and(
-            inArray(checkins.habitId, ids),
-            gte(checkins.day, filter.sinceDay),
-          )
-        : inArray(checkins.habitId, ids),
-    )
-    .all();
-
-  const checkinsByHabit = new Map<string, string[]>();
-  for (const row of checkinQuery) {
-    const list = checkinsByHabit.get(row.habitId) ?? [];
-    list.push(row.day);
-    checkinsByHabit.set(row.habitId, list);
-  }
-
+  const daysByHabit = checkinsByHabit(rows.map((h) => h.id));
   const todayDay = today();
+  const firstVisible = addDays(todayDay, -(VISIBLE_DAYS - 1));
 
-  const items: HabitListItem[] = filtered.map((h) => {
-    const days = checkinsByHabit.get(h.id) ?? [];
+  const items = rows.map((h): HabitListItem => {
+    const days = daysByHabit.get(h.id) ?? [];
     return {
       id: h.id,
       name: h.name,
       groupId: h.groupId,
-      groupName: h.groupId ? (groupById.get(h.groupId) ?? null) : null,
+      groupName: h.groupId ? (groupName.get(h.groupId) ?? null) : null,
       priority: parsePriority(h.priority),
       archived: h.archivedAt != null,
-      checkins: days,
+      recent: days.filter((day) => day >= firstVisible),
       currentStreak: currentStreak(days, todayDay),
     };
   });
 
-  items.sort((a, b) => {
-    const ga = a.groupId != null ? (groupRank.get(a.groupId) ?? 999) : 1000;
-    const gb = b.groupId != null ? (groupRank.get(b.groupId) ?? 999) : 1000;
-    if (ga !== gb) return ga - gb;
-    const pa = PRIORITY_RANK[a.priority];
-    const pb = PRIORITY_RANK[b.priority];
-    if (pa !== pb) return pa - pb;
-    return a.name.localeCompare(b.name);
-  });
-
-  return items;
+  // Array.sort is stable, so habits keep their own order inside a group.
+  const rank = (item: HabitListItem) =>
+    item.groupId == null
+      ? Number.MAX_SAFE_INTEGER
+      : (groupRank.get(item.groupId) ?? Number.MAX_SAFE_INTEGER - 1);
+  return items.sort((a, b) => rank(a) - rank(b));
 }
 
 export function getHabit(id: string): HabitDetail | null {
   const db = getDb();
   const habit = db.select().from(habits).where(eq(habits.id, id)).get();
   if (!habit) return null;
-
-  const [item] = listHabits({
-    archived: habit.archivedAt != null,
-  }).filter((h) => h.id === id);
-  if (!item) return null;
+  const group = habit.groupId ? getGroup(habit.groupId) : null;
 
   const all = db
     .select({ day: checkins.day })
     .from(checkins)
     .where(eq(checkins.habitId, id))
+    .orderBy(asc(checkins.day))
     .all()
     .map((r) => r.day);
 
+  const todayDay = today();
+  const created = calendarDate(new Date(habit.createdAt), getAppTimezone());
+  const start = all.length > 0 && all[0] < created ? all[0] : created;
+  const daysSinceStart = daysBetween(start, todayDay) + 1;
+  const window30 = Math.min(30, daysSinceStart);
+  const since30 = addDays(todayDay, -(window30 - 1));
+  const last30 = all.filter((day) => day >= since30 && day <= todayDay).length;
+  const firstVisible = addDays(todayDay, -(VISIBLE_DAYS - 1));
+
   return {
-    ...item,
-    checkins: all,
+    id: habit.id,
+    name: habit.name,
+    groupId: habit.groupId,
+    groupName: group?.name ?? null,
+    priority: parsePriority(habit.priority),
+    archived: habit.archivedAt != null,
+    recent: all.filter((day) => day >= firstVisible),
     allCheckins: all,
-    currentStreak: currentStreak(all, today()),
+    currentStreak: currentStreak(all, todayDay),
     longestStreak: longestStreak(all),
+    total: all.length,
+    rate30: last30 / window30,
+    rateAll: Math.min(1, all.length / daysSinceStart),
   };
 }
 
 export function getGroup(id: string): Group | null {
-  const db = getDb();
-  const row = db
+  const row = getDb()
     .select({ id: groups.id, name: groups.name })
     .from(groups)
     .where(eq(groups.id, id))
     .get();
   return row ?? null;
+}
+
+function checkinsByHabit(ids: string[]) {
+  const rows = getDb()
+    .select()
+    .from(checkins)
+    .where(inArray(checkins.habitId, ids))
+    .all();
+  const byHabit = new Map<string, string[]>();
+  for (const row of rows) {
+    const list = byHabit.get(row.habitId) ?? [];
+    list.push(row.day);
+    byHabit.set(row.habitId, list);
+  }
+  return byHabit;
+}
+
+function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
 }

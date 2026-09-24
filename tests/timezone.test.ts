@@ -3,6 +3,8 @@ import {
   addDays,
   calendarDate,
   dayOfWeek,
+  isValidDay,
+  weekStart,
   recentDays,
 } from "@/lib/timezone";
 
@@ -34,5 +36,22 @@ describe("dayOfWeek", () => {
   it("is 0 for Sunday", () => {
     expect(dayOfWeek("2026-09-06")).toBe(0);
     expect(dayOfWeek("2026-09-04")).toBe(5);
+  });
+});
+
+describe("weekStart", () => {
+  it("returns the Monday of the week", () => {
+    expect(weekStart("2026-09-04")).toBe("2026-08-31");
+    expect(weekStart("2026-08-31")).toBe("2026-08-31");
+    expect(weekStart("2026-09-06")).toBe("2026-08-31");
+  });
+});
+
+describe("isValidDay", () => {
+  it("accepts real dates and rejects impossible ones", () => {
+    expect(isValidDay("2024-02-29")).toBe(true);
+    expect(isValidDay("2026-02-30")).toBe(false);
+    expect(isValidDay("2026-13-01")).toBe(false);
+    expect(isValidDay("09/04/2026")).toBe(false);
   });
 });

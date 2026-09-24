@@ -15,6 +15,14 @@ export default async function HabitPage({
   if (!habit) notFound();
   const todayDay = today();
 
+  const stats = [
+    { label: "Current streak", value: weeks(habit.currentStreak) },
+    { label: "Longest streak", value: weeks(habit.longestStreak) },
+    { label: "Last 30 days", value: percent(habit.rate30) },
+    { label: "All time", value: percent(habit.rateAll) },
+    { label: "Check-ins", value: String(habit.total) },
+  ];
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8 md:py-12">
       <Link
@@ -24,7 +32,7 @@ export default async function HabitPage({
         hippoHabit
       </Link>
       <div className="mb-2 flex items-start justify-between gap-4">
-        <h1 className="text-[32px] font-semibold tracking-tight md:text-[40px]">
+        <h1 className="min-w-0 break-words text-[32px] font-semibold tracking-tight md:text-[40px]">
           {habit.name}
         </h1>
         <Link
@@ -44,20 +52,14 @@ export default async function HabitPage({
         {habit.archived && <span>Archived</span>}
       </div>
 
-      <div className="mb-8 flex gap-8 text-sm">
-        <div>
-          <div className="text-muted">Current</div>
-          <div className="text-2xl font-semibold tabular-nums">
-            {habit.currentStreak}
+      <dl className="mb-8 grid grid-cols-2 gap-x-8 gap-y-4 text-sm sm:grid-cols-5">
+        {stats.map((stat) => (
+          <div key={stat.label}>
+            <dt className="text-muted">{stat.label}</dt>
+            <dd className="text-2xl font-semibold tabular-nums">{stat.value}</dd>
           </div>
-        </div>
-        <div>
-          <div className="text-muted">Longest</div>
-          <div className="text-2xl font-semibold tabular-nums">
-            {habit.longestStreak}
-          </div>
-        </div>
-      </div>
+        ))}
+      </dl>
 
       <Heatmap
         habitId={habit.id}
@@ -65,6 +67,18 @@ export default async function HabitPage({
         daysDone={habit.allCheckins}
         today={todayDay}
       />
+      <p className="mt-6 text-xs text-muted">
+        Streaks count weeks with at least one check-in. A streak only breaks
+        after a full week (Monday to Sunday) with none.
+      </p>
     </div>
   );
+}
+
+function weeks(count: number) {
+  return `${count} ${count === 1 ? "wk" : "wks"}`;
+}
+
+function percent(rate: number) {
+  return `${Math.round(rate * 100)}%`;
 }

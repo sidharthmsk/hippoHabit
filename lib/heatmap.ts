@@ -28,14 +28,14 @@ const MONTHS = [
   "Dec",
 ];
 
-/** GitHub-style 53-week grid. Sunday is the first row. Last column is the current week. */
+/** GitHub-style 53-week grid. Monday is the first row. Last column is the current week. */
 export function buildHeatmap(
   daysDone: Iterable<string>,
   today: string,
 ): HeatmapWeek[] {
   const done = daysDone instanceof Set ? daysDone : new Set(daysDone);
-  const todayDow = dayOfWeek(today);
-  const todayIndex = (WEEKS - 1) * 7 + todayDow;
+  const todayRow = weekdayRow(today);
+  const todayIndex = (WEEKS - 1) * 7 + todayRow;
   const weeks: HeatmapWeek[] = [];
 
   for (let w = 0; w < WEEKS; w++) {
@@ -59,4 +59,9 @@ export function buildHeatmap(
   }
 
   return weeks;
+}
+
+/** Row of a day in the grid: 0 = Monday … 6 = Sunday. */
+export function weekdayRow(day: string): number {
+  return (dayOfWeek(day) + 6) % 7;
 }

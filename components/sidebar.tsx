@@ -77,6 +77,13 @@ export function Sidebar({ nav, onNavigate }: Props) {
           New habit
         </NavLink>
         <NavLink
+          href="/arrange"
+          active={pathname === "/arrange"}
+          onNavigate={onNavigate}
+        >
+          Arrange
+        </NavLink>
+        <NavLink
           href="/settings"
           active={pathname === "/settings"}
           onNavigate={onNavigate}
@@ -122,7 +129,8 @@ function NavLink({
     <Link
       href={href}
       onClick={onNavigate}
-      className={`rounded-[4px] px-2 py-1.5 leading-5 ${
+      aria-current={active ? "page" : undefined}
+      className={`rounded-[4px] px-2 py-1.5 leading-5 outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         active
           ? "bg-hover font-medium text-foreground"
           : "text-foreground/80 hover:bg-hover"

@@ -12,13 +12,21 @@ export type HabitListItem = {
   groupName: string | null;
   priority: Priority;
   archived: boolean;
-  checkins: string[];
+  /** Check-ins within the visible week only. */
+  recent: string[];
+  /** In weeks. */
   currentStreak: number;
 };
 
 export type HabitDetail = HabitListItem & {
-  longestStreak: number;
   allCheckins: string[];
+  /** In weeks. */
+  longestStreak: number;
+  total: number;
+  /** 0–1, share of the last 30 days (or fewer, for a newer habit) that were checked. */
+  rate30: number;
+  /** 0–1, share of days since the habit started. */
+  rateAll: number;
 };
 
 export type NavData = {

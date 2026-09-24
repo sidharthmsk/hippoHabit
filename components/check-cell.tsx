@@ -1,8 +1,7 @@
 "use client";
 
-import { useOptimistic, useTransition } from "react";
-import { toggleCheckin } from "@/lib/actions";
 import { formatLongDate } from "@/lib/timezone";
+import { useCheckin } from "./use-checkin";
 
 type Props = {
   habitId: string;
@@ -10,7 +9,6 @@ type Props = {
   day: string;
   done: boolean;
   isToday?: boolean;
-  compact?: boolean;
 };
 
 export function CheckCell({
@@ -19,30 +17,21 @@ export function CheckCell({
   day,
   done,
   isToday = false,
-  compact = false,
 }: Props) {
-  const [optimistic, setOptimistic] = useOptimistic(done);
-  const [, start] = useTransition();
-  const size = compact
-    ? "h-10 w-10 md:h-7 md:w-7"
-    : "h-8 w-8";
+  const [checked, toggle] = useCheckin(habitId, day, done);
+  const tone = checked
+    ? "border-done bg-done text-white"
+    : isToday
+      ? "border-foreground/60 text-transparent hover:border-foreground"
+      : "border-foreground/25 text-transparent hover:border-foreground/50";
 
   return (
     <button
       type="button"
-      aria-pressed={optimistic}
+      aria-pressed={checked}
       aria-label={`${habitName}, ${formatLongDate(day)}`}
-      onClick={() => {
-        start(async () => {
-          setOptimistic(!optimistic);
-          await toggleCheckin(habitId, day);
-        });
-      }}
-      className={`${size} inline-flex items-center justify-center rounded-[3px] border transition-colors ${
-        optimistic
-          ? "border-done bg-done text-white"
-          : "border-foreground/25 bg-transparent text-transparent hover:border-foreground/50"
-      } ${isToday && !optimistic ? "border-foreground/60" : ""}`}
+      onClick={toggle}
+      className={`inline-flex h-10 w-10 items-center justify-center rounded-[3px] border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background md:h-7 md:w-7 ${tone}`}
     >
       <svg
         viewBox="0 0 16 16"

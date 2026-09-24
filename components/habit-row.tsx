@@ -22,7 +22,9 @@ export function DayHeaders({
   return (
     <div className={`flex items-end justify-end gap-1 ${flush ? "" : "pb-2"}`}>
       {!flush && <div className="min-w-0 flex-1" />}
-      <div className="hidden w-8 md:block" />
+      <div className="hidden w-9 text-center text-[10px] leading-tight text-muted md:block">
+        Streak
+      </div>
       {days.map((day, i) => {
         const { weekday, date } = formatDayHeading(day);
         const hideOnMobile = i < days.length - 5;
@@ -43,7 +45,7 @@ export function DayHeaders({
 }
 
 export function HabitRow({ habit, days, today }: Props) {
-  const done = new Set(habit.checkins);
+  const done = new Set(habit.recent);
 
   return (
     <div className="group flex items-center gap-1 border-b border-border py-1.5">
@@ -60,8 +62,15 @@ export function HabitRow({ habit, days, today }: Props) {
           </span>
         </div>
       </div>
-      <div className="hidden w-8 text-right text-xs tabular-nums text-muted md:block">
-        {habit.currentStreak > 0 ? habit.currentStreak : ""}
+      <div
+        className="hidden w-9 text-center text-xs tabular-nums text-muted md:block"
+        title={
+          habit.currentStreak > 0
+            ? `${habit.currentStreak}-week streak`
+            : undefined
+        }
+      >
+        {habit.currentStreak > 0 ? `${habit.currentStreak}w` : ""}
       </div>
       {days.map((day, i) => {
         const hideOnMobile = i < days.length - 5;
@@ -76,7 +85,6 @@ export function HabitRow({ habit, days, today }: Props) {
               day={day}
               done={done.has(day)}
               isToday={day === today}
-              compact
             />
           </div>
         );

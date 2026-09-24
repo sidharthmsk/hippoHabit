@@ -29,7 +29,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-The app listens on port 3000 (`PUBLISH_PORT` to change it). Put it behind HTTPS (Caddy, nginx, Traefik). Backup is the file `data/habits.db`, or export JSON from Settings. Import replaces all habits and check-ins.
+The app listens on port 3000 (`PUBLISH_PORT` to change it). Put it behind HTTPS (Caddy, nginx, Traefik). Backup is the file `data/habits.db`, or export JSON from Settings. Importing a hippoHabit backup replaces all habits and check-ins. Importing a [Beaver Habits](https://github.com/daya0576/beaverhabits) JSON export merges it in: new habits are added (first tag becomes the group, starred habits become High priority) and check-ins are merged into habits with the same name.
 
 | Variable | Purpose |
 |---|---|
@@ -40,7 +40,9 @@ The app listens on port 3000 (`PUBLISH_PORT` to change it). Put it behind HTTPS 
 
 ## How it works
 
-Home is a list of habits grouped by group, with the last week as checkboxes (Beaver / Loop Habit style). Tap a cell to toggle that day. Open a habit for a year heatmap and current / longest streak. Add and edit habits on their own pages. Each habit has a High / Medium / Low priority.
+Home is a list of habits grouped by group, with the last week as checkboxes (Beaver / Loop Habit style) and today's progress at the top. Tap a cell to toggle that day. Open a habit for a year heatmap, streaks, completion rates, and total check-ins. Add and edit habits on their own pages, and set the order of groups and habits under Arrange. Each habit has a High / Medium / Low priority.
+
+Streaks are weekly. A week (Monday to Sunday) counts when it has at least one check-in, and a streak only breaks after a full week with none. The current week never breaks a streak while it is in progress.
 
 ## License
 

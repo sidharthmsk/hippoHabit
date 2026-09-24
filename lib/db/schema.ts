@@ -4,7 +4,6 @@ import {
   primaryKey,
   sqliteTable,
   text,
-  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 export const groups = sqliteTable("groups", {
@@ -26,28 +25,6 @@ export const habits = sqliteTable("habits", {
   createdAt: integer("created_at").notNull(),
 });
 
-export const tags = sqliteTable(
-  "tags",
-  {
-    id: text("id").primaryKey(),
-    name: text("name").notNull(),
-  },
-  (table) => [uniqueIndex("tags_name_unique").on(table.name)],
-);
-
-export const habitTags = sqliteTable(
-  "habit_tags",
-  {
-    habitId: text("habit_id")
-      .notNull()
-      .references(() => habits.id, { onDelete: "cascade" }),
-    tagId: text("tag_id")
-      .notNull()
-      .references(() => tags.id, { onDelete: "cascade" }),
-  },
-  (table) => [primaryKey({ columns: [table.habitId, table.tagId] })],
-);
-
 export const checkins = sqliteTable(
   "checkins",
   {
@@ -68,23 +45,7 @@ export const habitsRelations = relations(habits, ({ one, many }) => ({
     fields: [habits.groupId],
     references: [groups.id],
   }),
-  habitTags: many(habitTags),
   checkins: many(checkins),
-}));
-
-export const tagsRelations = relations(tags, ({ many }) => ({
-  habitTags: many(habitTags),
-}));
-
-export const habitTagsRelations = relations(habitTags, ({ one }) => ({
-  habit: one(habits, {
-    fields: [habitTags.habitId],
-    references: [habits.id],
-  }),
-  tag: one(tags, {
-    fields: [habitTags.tagId],
-    references: [tags.id],
-  }),
 }));
 
 export const checkinsRelations = relations(checkins, ({ one }) => ({

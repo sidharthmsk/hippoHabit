@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildHeatmap } from "@/lib/heatmap";
-import { dayOfWeek } from "@/lib/timezone";
+import { buildHeatmap, weekdayRow } from "@/lib/heatmap";
 
 describe("buildHeatmap", () => {
   it("puts today in the last column at the right weekday row", () => {
@@ -8,9 +7,15 @@ describe("buildHeatmap", () => {
     const weeks = buildHeatmap(["2026-09-04", "2026-09-01"], today);
     expect(weeks).toHaveLength(53);
     const last = weeks[52];
-    expect(last.cells[dayOfWeek(today)].date).toBe(today);
-    expect(last.cells[dayOfWeek(today)].done).toBe(true);
-    expect(last.cells[dayOfWeek(today)].inRange).toBe(true);
+    expect(last.cells[weekdayRow(today)].date).toBe(today);
+    expect(last.cells[weekdayRow(today)].done).toBe(true);
+    expect(last.cells[weekdayRow(today)].inRange).toBe(true);
+  });
+
+  it("starts each column on Monday", () => {
+    const weeks = buildHeatmap([], "2026-09-04");
+    expect(weeks[52].cells[0].date).toBe("2026-08-31");
+    expect(weeks[52].cells[6].date).toBe("2026-09-06");
   });
 
   it("marks future days in the current week as out of range", () => {
