@@ -37,7 +37,9 @@ function prompt(question, { echo = false } = {}) {
     stderr.write(question);
     let value = "";
     const onData = (chunk) => {
-      const chars = [...chunk];
+      // Drop terminal escape sequences, like the markers some terminals
+      // wrap pasted text in, so they don't end up in the password.
+      const chars = [...chunk.replace(/\x1b\[[0-9;?]*[~A-Za-z]/g, "")];
       for (let i = 0; i < chars.length; i++) {
         const char = chars[i];
         if (char === "\r" || char === "\n") {
