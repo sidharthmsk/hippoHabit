@@ -11,8 +11,8 @@ Sign in with a username and password, through your own OIDC provider, or both. D
 ```bash
 cp .env.example .env.local
 npm install
-npm run hash-password   # paste the output into AUTH_PASSWORD_HASH
-# also set AUTH_USERNAME, AUTH_SECRET (openssl rand -base64 32), APP_TIMEZONE
+npm run hash-password   # paste the two lines it prints into .env.local
+# also set AUTH_SECRET (openssl rand -base64 32), APP_TIMEZONE
 npm run dev
 ```
 
@@ -28,7 +28,7 @@ npm test
 cp .env.example .env
 # edit AUTH_SECRET, APP_TIMEZONE, and at least one sign-in method (below)
 docker compose build
-docker compose run --rm habits node scripts/hash-password.mjs   # for AUTH_PASSWORD_HASH
+docker compose run --rm habits node scripts/hash-password.mjs   # paste the output into .env
 docker compose up -d
 ```
 
@@ -37,7 +37,7 @@ The app listens on port 3000 (`PUBLISH_PORT` to change it). Put it behind HTTPS 
 | Variable | Purpose |
 |---|---|
 | `AUTH_SECRET` | Signs the session cookie. Changing it signs every device out |
-| `AUTH_USERNAME` | Username for password sign-in |
+| `AUTH_USERNAME` | Username for password sign-in. Defaults to `admin` |
 | `AUTH_PASSWORD_HASH` | scrypt hash from `hash-password`. Never the plain password |
 | `OIDC_ISSUER` | Issuer URL of your provider |
 | `OIDC_CLIENT_ID` | Client ID from the provider |
@@ -52,7 +52,7 @@ The app listens on port 3000 (`PUBLISH_PORT` to change it). Put it behind HTTPS 
 
 Set up one method or both. The login page shows whatever is configured.
 
-**Password.** Set `AUTH_USERNAME` and `AUTH_PASSWORD_HASH`. The hash is scrypt, and the format has no `$`, so it goes into `.env` unquoted. After 5 attempts from one IP, or 30 in total, sign-in pauses for 15 minutes. The counters live in memory, so restarting the container clears them.
+**Password.** Run `hash-password`. It asks for a username (press Enter for `admin`) and a password, then prints `AUTH_USERNAME` and `AUTH_PASSWORD_HASH` lines to paste into `.env`. If `AUTH_USERNAME` is left unset, the username is `admin`. The hash is scrypt, and the format has no `$`, so it goes into `.env` unquoted. After 5 attempts from one IP, or 30 in total, sign-in pauses for 15 minutes. The counters live in memory, so restarting the container clears them.
 
 **OIDC** (Authentik, Authelia, Pocket ID, Keycloak, and others). Create a confidential client in your provider with the redirect URI `https://<your app>/auth/oidc/callback` and the scopes `openid profile email`. Then set:
 

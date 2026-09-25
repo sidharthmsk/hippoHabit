@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// Prints an AUTH_PASSWORD_HASH value. Prompts for the password on a
-// terminal, or reads it from stdin: echo -n 'secret' | node scripts/hash-password.mjs
-// Keep the format in sync with lib/password.ts.
+// On a terminal, asks for a username (default admin) and password and prints
+// the AUTH_USERNAME and AUTH_PASSWORD_HASH lines for .env. Piped input prints
+// only the hash: echo -n 'secret' | node scripts/hash-password.mjs
+// Keep the format in sync with lib/password.ts and lib/auth-config.ts.
 import { randomBytes, scrypt } from "node:crypto";
 
 const N = 65536;
 const r = 8;
 const p = 2;
+const DEFAULT_USERNAME = "admin";
 
 function hash(password) {
   const salt = randomBytes(16);
@@ -26,36 +28,51 @@ function hash(password) {
   });
 }
 
-function prompt(question) {
+// Input typed or pasted past the end of one answer, kept for the next prompt.
+let pending = "";
+
+function prompt(question, { echo = false } = {}) {
   return new Promise((resolve) => {
     const { stdin, stderr } = process;
     stderr.write(question);
-    stdin.setRawMode(true);
-    stdin.resume();
-    stdin.setEncoding("utf8");
     let value = "";
     const onData = (chunk) => {
-      for (const char of chunk) {
+      const chars = [...chunk];
+      for (let i = 0; i < chars.length; i++) {
+        const char = chars[i];
         if (char === "\r" || char === "\n") {
           stdin.setRawMode(false);
           stdin.pause();
           stdin.off("data", onData);
           stderr.write("\n");
+          pending = chars
+            .slice(i + 1)
+            .join("")
+            .replace(/^\n/, "");
           resolve(value);
-          return;
+          return true;
         }
         if (char === "\u0003") {
           stderr.write("\n");
           process.exit(130);
         }
         if (char === "\u007f" || char === "\b") {
+          if (echo && value) stderr.write("\b \b");
           value = value.slice(0, -1);
-        } else {
+        } else if (char >= " ") {
+          if (echo) stderr.write(char);
           value += char;
         }
       }
+      return false;
     };
+    const buffered = pending;
+    pending = "";
+    if (buffered && onData(buffered)) return;
+    stdin.setRawMode(true);
+    stdin.setEncoding("utf8");
     stdin.on("data", onData);
+    stdin.resume();
   });
 }
 
@@ -65,8 +82,16 @@ async function readStdin() {
   return data.replace(/\r?\n$/, "");
 }
 
+let username = null;
 let password;
 if (process.stdin.isTTY) {
+  username =
+    (await prompt(`Username [${DEFAULT_USERNAME}]: `, { echo: true })).trim() ||
+    DEFAULT_USERNAME;
+  if (/[\s$"'#]/.test(username)) {
+    console.error("Use a username without spaces, quotes, $ or #.");
+    process.exit(1);
+  }
   password = await prompt("Password: ");
   const again = await prompt("Again: ");
   if (password !== again) {
@@ -82,4 +107,10 @@ if (password.length < 8) {
   process.exit(1);
 }
 
-console.log(await hash(password));
+const stored = await hash(password);
+if (username) {
+  console.log(`AUTH_USERNAME=${username}`);
+  console.log(`AUTH_PASSWORD_HASH=${stored}`);
+} else {
+  console.log(stored);
+}

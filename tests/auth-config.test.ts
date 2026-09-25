@@ -15,6 +15,12 @@ describe("readAuthConfig", () => {
     expect(config.problems).toEqual([]);
   });
 
+  it("defaults the username to admin", () => {
+    const config = readAuthConfig({ AUTH_SECRET: "s", AUTH_PASSWORD_HASH: hash });
+    expect(config.password).toEqual({ username: "admin", passwordHash: hash });
+    expect(config.problems).toEqual([]);
+  });
+
   it("enables OIDC with three variables", () => {
     const config = readAuthConfig({
       AUTH_SECRET: "s",

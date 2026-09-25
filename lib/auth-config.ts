@@ -1,5 +1,8 @@
 import { parsePasswordHash } from "./password";
 
+// Used when AUTH_PASSWORD_HASH is set without AUTH_USERNAME.
+export const DEFAULT_USERNAME = "admin";
+
 export type PasswordLogin = { username: string; passwordHash: string };
 
 export type OidcLogin = {
@@ -31,16 +34,14 @@ export function readAuthConfig(env: Env = process.env): AuthConfig {
   const username = value("AUTH_USERNAME");
   const passwordHash = value("AUTH_PASSWORD_HASH");
   if (username || passwordHash) {
-    if (!username) {
-      problems.push("AUTH_PASSWORD_HASH is set but AUTH_USERNAME is not.");
-    } else if (!passwordHash) {
+    if (!passwordHash) {
       problems.push("AUTH_USERNAME is set but AUTH_PASSWORD_HASH is not.");
     } else if (!parsePasswordHash(passwordHash)) {
       problems.push(
         "AUTH_PASSWORD_HASH is not a valid hash. Generate one with npm run hash-password.",
       );
     } else {
-      password = { username, passwordHash };
+      password = { username: username || DEFAULT_USERNAME, passwordHash };
     }
   }
 
@@ -82,8 +83,8 @@ export function readAuthConfig(env: Env = process.env): AuthConfig {
   if (!password && !oidc && problems.length === 0) {
     problems.push(
       value("ACCESS_KEY")
-        ? "ACCESS_KEY is no longer used. Set AUTH_USERNAME and AUTH_PASSWORD_HASH, or configure OIDC."
-        : "No sign-in method is configured. Set AUTH_USERNAME and AUTH_PASSWORD_HASH, or configure OIDC.",
+        ? "ACCESS_KEY is no longer used. Set AUTH_PASSWORD_HASH, or configure OIDC."
+        : "No sign-in method is configured. Set AUTH_PASSWORD_HASH, or configure OIDC.",
     );
   }
 
