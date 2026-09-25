@@ -1,8 +1,17 @@
 import { ImportForm } from "@/components/import-form";
+import { ThemeForm } from "@/components/theme-form";
 import { logoutAction } from "@/lib/actions";
+import { readAuthConfig } from "@/lib/auth-config";
+import { getDb } from "@/lib/db";
+import { readTheme } from "@/lib/settings";
 import { getAppTimezone } from "@/lib/timezone";
 
 export default function SettingsPage() {
+  const { password, oidc } = readAuthConfig();
+  const signIn = [password && "Password", oidc && oidc.name]
+    .filter(Boolean)
+    .join(", ");
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8 md:py-12">
       <h1 className="mb-8 text-[32px] font-semibold tracking-tight md:text-[40px]">
@@ -17,7 +26,19 @@ export default function SettingsPage() {
           <dt className="text-muted">Streaks</dt>
           <dd>Weekly, Monday to Sunday</dd>
         </div>
+        <div>
+          <dt className="text-muted">Sign-in</dt>
+          <dd>{signIn || "Not configured"}</dd>
+        </div>
       </dl>
+
+      <section className="mb-10">
+        <h2 className="mb-1 text-lg font-semibold tracking-tight">Appearance</h2>
+        <p className="mb-4 text-sm text-muted">
+          Saved on the server, so every device you sign in on uses it.
+        </p>
+        <ThemeForm saved={readTheme(getDb())} />
+      </section>
 
       <section className="mb-10">
         <h2 className="mb-1 text-lg font-semibold tracking-tight">Backup</h2>
@@ -47,7 +68,7 @@ export default function SettingsPage() {
         </button>
       </form>
       <p className="mt-3 text-xs text-muted">
-        This device will ask for the access key again.
+        You will need to sign in again on this device.
       </p>
     </div>
   );

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PRIORITY_LABELS, type Priority } from "@/lib/priority";
 
 const TONE: Record<Priority, string> = {
-  high: "text-red-700 dark:text-red-400",
+  high: "text-danger",
   medium: "text-muted",
   low: "text-muted/70",
 };

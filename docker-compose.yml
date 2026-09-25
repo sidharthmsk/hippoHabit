@@ -14,8 +14,17 @@ services:
       # SQLite file + WAL. Backup this directory (or export JSON from Settings).
       - ./data:/app/data
     environment:
-      ACCESS_KEY: ${ACCESS_KEY:?Set ACCESS_KEY in .env}
       AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
+      # Password sign-in. Hash with: docker compose run --rm habits node scripts/hash-password.mjs
+      AUTH_USERNAME: ${AUTH_USERNAME:-}
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-}
+      # Optional OIDC sign-in (Authentik, Authelia, Pocket ID, ...).
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-}
+      OIDC_ALLOWED_USERS: ${OIDC_ALLOWED_USERS:-}
+      APP_URL: ${APP_URL:-}
       APP_TIMEZONE: ${APP_TIMEZONE:-UTC}
       DATABASE_PATH: /app/data/habits.db
       NODE_ENV: production
@@ -27,7 +36,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:3000/unlock').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+          "fetch('http://127.0.0.1:3000/login').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
         ]
       interval: 30s
       timeout: 5s

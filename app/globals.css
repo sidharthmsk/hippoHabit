@@ -10,6 +10,8 @@
   --done: #0f7b6c;
   --page: #ffffff;
   --hover: #37352f0a;
+  --done-foreground: #ffffff;
+  --danger: #b91c1c;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,6 +25,8 @@
     --done: #4dab9a;
     --page: #202020;
     --hover: #ffffff0a;
+    --done-foreground: #ffffff;
+    --danger: #f87171;
   }
 }
 
@@ -36,6 +40,8 @@
   --color-done: var(--done);
   --color-page: var(--page);
   --color-hover: var(--hover);
+  --color-done-foreground: var(--done-foreground);
+  --color-danger: var(--danger);
   --font-sans: var(--font-inter);
 }
 
@@ -50,5 +56,5 @@ body {
 }
 
 ::selection {
-  background: #2383e233;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }

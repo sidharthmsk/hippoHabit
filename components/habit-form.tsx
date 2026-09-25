@@ -72,7 +72,7 @@ export function HabitForm({
       </label>
 
       {state?.error && (
-        <p id="habit-form-error" className="text-sm text-red-700 dark:text-red-400">
+        <p id="habit-form-error" className="text-sm text-danger">
           {state.error}
         </p>
       )}

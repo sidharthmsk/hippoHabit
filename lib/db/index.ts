@@ -62,6 +62,14 @@ const MIGRATIONS: ((sqlite: Sqlite) => void)[] = [
     const update = sqlite.prepare("UPDATE habits SET sort_order = ? WHERE id = ?");
     rows.forEach((row, index) => update.run(index + 1, row.id));
   },
+  (sqlite) => {
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+    `);
+  },
 ];
 
 function hasColumn(sqlite: Sqlite, table: string, column: string): boolean {

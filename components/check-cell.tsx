@@ -20,7 +20,7 @@ export function CheckCell({
 }: Props) {
   const [checked, toggle] = useCheckin(habitId, day, done);
   const tone = checked
-    ? "border-done bg-done text-white"
+    ? "border-done bg-done text-done-foreground"
     : isToday
       ? "border-foreground/60 text-transparent hover:border-foreground"
       : "border-foreground/25 text-transparent hover:border-foreground/50";

@@ -21,12 +21,12 @@ describe("openDatabase migrations", () => {
     const file = tempFile();
     openDatabase(file);
     const sqlite = new Database(file);
-    expect(sqlite.pragma("user_version", { simple: true })).toBe(4);
+    expect(sqlite.pragma("user_version", { simple: true })).toBe(5);
     const tables = sqlite
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
       .all()
       .map((row) => (row as { name: string }).name);
-    expect(tables).toEqual(["checkins", "groups", "habits"]);
+    expect(tables).toEqual(["checkins", "groups", "habits", "settings"]);
   });
 
   it("upgrades a pre-versioning database without losing data", () => {
@@ -45,7 +45,7 @@ describe("openDatabase migrations", () => {
 
     openDatabase(file);
     const sqlite = new Database(file);
-    expect(sqlite.pragma("user_version", { simple: true })).toBe(4);
+    expect(sqlite.pragma("user_version", { simple: true })).toBe(5);
     const habits = sqlite
       .prepare("SELECT id, priority, sort_order FROM habits ORDER BY sort_order")
       .all();

@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { connection } from "next/server";
+import { getDb } from "@/lib/db";
+import { readTheme } from "@/lib/settings";
+import { themeColors, themeCss } from "@/lib/theme";
 import "./globals.css";
 
 const inter = Inter({
@@ -17,22 +21,33 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f6f3" },
-    { media: "(prefers-color-scheme: dark)", color: "#191919" },
-  ],
-  width: "device-width",
-  initialScale: 1,
-};
+export async function generateViewport(): Promise<Viewport> {
+  await connection();
+  const colors = themeColors(readTheme(getDb()));
+  return {
+    themeColor: [
+      { media: "(prefers-color-scheme: light)", color: colors.light },
+      { media: "(prefers-color-scheme: dark)", color: colors.dark },
+    ],
+    width: "device-width",
+    initialScale: 1,
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Theme lives in the database, so every page renders at request time.
+  await connection();
+  const css = themeCss(readTheme(getDb()));
+
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
+      <head>
+        <style id="app-theme">{css}</style>
+      </head>
       <body className="min-h-full bg-background font-sans text-foreground">
         {children}
       </body>

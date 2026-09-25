@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { keysMatch, signSession, verifySession } from "@/lib/crypto";
+import {
+  keysMatch,
+  signSession,
+  signValue,
+  unsignValue,
+  verifySession,
+} from "@/lib/crypto";
 
 const secret = "test-secret-value";
 
@@ -35,5 +41,23 @@ describe("keysMatch", () => {
 
   it("rejects when the expected key is empty", async () => {
     expect(await keysMatch("", "", secret)).toBe(false);
+  });
+});
+
+describe("signed values", () => {
+  it("round-trips", async () => {
+    const token = await signValue("abc_-123", secret);
+    expect(await unsignValue(token, secret)).toBe("abc_-123");
+  });
+
+  it("rejects tampering and other secrets", async () => {
+    const token = await signValue("abc", secret);
+    expect(await unsignValue(`abd${token.slice(3)}`, secret)).toBeNull();
+    expect(await unsignValue(token, "other-secret")).toBeNull();
+  });
+
+  it("can't be used as a session token", async () => {
+    const token = await signValue(`v1.${Date.now()}`, secret);
+    expect(await verifySession(token, secret)).toBe(false);
   });
 });

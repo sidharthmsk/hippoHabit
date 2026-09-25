@@ -46,7 +46,7 @@ export function ImportForm() {
       />
       {detected && <p className="text-sm text-muted">{NOTE[detected]}</p>}
       {state?.error && (
-        <p className="text-sm text-red-700 dark:text-red-400">{state.error}</p>
+        <p className="text-sm text-danger">{state.error}</p>
       )}
       {state?.message && <p className="text-sm text-done">{state.message}</p>}
       <button

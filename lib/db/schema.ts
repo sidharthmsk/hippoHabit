@@ -36,6 +36,11 @@ export const checkins = sqliteTable(
   (table) => [primaryKey({ columns: [table.habitId, table.day] })],
 );
 
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
 export const groupsRelations = relations(groups, ({ many }) => ({
   habits: many(habits),
 }));

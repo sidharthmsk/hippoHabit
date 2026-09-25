@@ -60,6 +60,24 @@ export async function verifySession(
   return timingSafeEqual(sig, expected);
 }
 
+// The "value:" prefix keeps these signatures distinct from session tokens.
+export async function signValue(value: string, secret: string): Promise<string> {
+  return `${value}.${await hmacHex(`value:${value}`, secret)}`;
+}
+
+export async function unsignValue(
+  token: string,
+  secret: string,
+): Promise<string | null> {
+  if (!token || !secret) return null;
+  const lastDot = token.lastIndexOf(".");
+  if (lastDot < 0) return null;
+  const value = token.slice(0, lastDot);
+  const sig = token.slice(lastDot + 1);
+  const expected = await hmacHex(`value:${value}`, secret);
+  return timingSafeEqual(sig, expected) ? value : null;
+}
+
 function bufferToHex(buffer: ArrayBuffer): string {
   return [...new Uint8Array(buffer)]
     .map((b) => b.toString(16).padStart(2, "0"))

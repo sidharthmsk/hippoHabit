@@ -5,14 +5,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   destroySession,
+  loginWithPassword,
   requireUnlocked,
-  unlockWithKey,
 } from "./auth";
 import { BackupError, importFile } from "./backup";
 import { getDb } from "./db";
 import { checkins, groups, habits } from "./db/schema";
 import { findOrCreateGroup, pruneEmptyGroups } from "./groups";
 import { parsePriority } from "./priority";
+import { clearTheme, writeTheme } from "./settings";
+import { parseTheme } from "./theme";
 import { isValidDay, today } from "./timezone";
 
 export type FormState = { error?: string; message?: string } | undefined;
@@ -24,20 +26,42 @@ function revalidateAll() {
   revalidatePath("/", "layout");
 }
 
-export async function unlockAction(
-  _prev: FormState,
+export async function loginAction(
+  _prev: { error?: string; username?: string } | undefined,
   formData: FormData,
-): Promise<FormState> {
-  const key = String(formData.get("key") ?? "");
-  if (!key) return { error: "Enter your key." };
-  const ok = await unlockWithKey(key);
-  if (!ok) return { error: "Wrong key." };
+): Promise<{ error?: string; username?: string }> {
+  const username = String(formData.get("username") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  if (!username || !password) {
+    return { error: "Enter your username and password.", username };
+  }
+  const { error } = await loginWithPassword(username, password);
+  if (error) return { error, username };
   redirect("/");
 }
 
 export async function logoutAction() {
   await destroySession();
-  redirect("/unlock");
+  redirect("/login");
+}
+
+export async function saveThemeAction(formData: FormData) {
+  await requireUnlocked();
+  writeTheme(
+    getDb(),
+    parseTheme({
+      mode: formData.get("mode"),
+      background: formData.get("background"),
+      accent: formData.get("accent"),
+    }),
+  );
+  revalidateAll();
+}
+
+export async function resetThemeAction() {
+  await requireUnlocked();
+  clearTheme(getDb());
+  revalidateAll();
 }
 
 /**

@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "25mb",
     },
   },
+  async redirects() {
+    return [{ source: "/unlock", destination: "/login", permanent: true }];
+  },
 };
 
 export default nextConfig;

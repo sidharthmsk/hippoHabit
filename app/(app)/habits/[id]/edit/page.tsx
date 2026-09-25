@@ -56,7 +56,7 @@ export default async function EditHabitPage({
         >
           <button
             type="submit"
-            className="text-red-700 hover:underline dark:text-red-400"
+            className="text-danger hover:underline"
           >
             Delete
           </button>
