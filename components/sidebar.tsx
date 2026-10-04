@@ -16,7 +16,11 @@ export function Sidebar({ nav, onNavigate }: Props) {
 
   return (
     <nav className="flex h-full flex-col px-2 py-3 text-sm">
-      <div className="mb-4 flex items-center gap-2 px-2">
+      <Link
+        href="/"
+        onClick={onNavigate}
+        className="mb-4 flex items-center gap-2 rounded-[4px] px-2 py-1 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent"
+      >
         <Image
           src="/logo.png"
           alt=""
@@ -25,7 +29,7 @@ export function Sidebar({ nav, onNavigate }: Props) {
           className="rounded-[5px]"
         />
         <span className="text-[15px] font-semibold tracking-tight">hippoHabit</span>
-      </div>
+      </Link>
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
         <Section>
           <NavLink href="/" active={pathname === "/"} onNavigate={onNavigate}>

@@ -48,13 +48,13 @@ export function HabitGroups({
             key={section.id}
             className={collapsed ? "mb-2 last:mb-0" : "mb-8 last:mb-0"}
           >
-            <div className="mb-1 flex items-end gap-1">
+            <div className="mb-1">
               <button
                 type="button"
                 aria-expanded={!collapsed}
                 aria-controls={`group-${section.id}`}
                 onClick={() => toggle(section.id)}
-                className="-ml-1 flex min-h-10 min-w-0 flex-1 items-center gap-1 rounded-[3px] px-1 text-left hover:bg-hover md:min-h-0 md:pb-1"
+                className="-ml-1 flex min-h-10 w-full min-w-0 items-center gap-1 rounded-[3px] px-1 text-left hover:bg-hover md:min-h-0 md:pb-1"
               >
                 <Chevron expanded={!collapsed} />
                 <span className="min-w-0 truncate text-[15px] font-medium">
@@ -66,7 +66,7 @@ export function HabitGroups({
                   </span>
                 )}
               </button>
-              {!collapsed && <DayHeaders days={days} today={today} flush />}
+              {!collapsed && <DayHeaders days={days} today={today} />}
             </div>
             <div id={`group-${section.id}`} hidden={collapsed}>
               {section.items.map((habit) => (

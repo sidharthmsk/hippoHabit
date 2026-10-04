@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.1 (2026-10-04)
+
+- The hippoHabit logo and name, in the sidebar and on the mobile top bar, open All.
+- The group field lists groups that already exist. Pick one, or type a new name.
+- Hovering a habit name shows a padded highlight lined up with the checkboxes. Long names wrap onto the next line, including on Arrange.
+- Day headings show the full weekday.
+
 ## v1.0.0 (2026-10-04)
 
 First public release.

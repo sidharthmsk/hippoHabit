@@ -58,7 +58,7 @@ function HabitOrder({ habits }: { habits: HabitListItem[] }) {
     <ul>
       {habits.map((habit, index) => (
         <li key={habit.id} className="flex items-center gap-2 py-1 pl-4">
-          <span className="min-w-0 flex-1 truncate text-sm">{habit.name}</span>
+          <span className="min-w-0 flex-1 break-words text-sm">{habit.name}</span>
           <MoveButtons
             label={habit.name}
             up={index > 0 ? moveHabit.bind(null, habit.id, "up") : null}

@@ -10,18 +10,10 @@ type Props = {
   today: string;
 };
 
-export function DayHeaders({
-  days,
-  today,
-  flush = false,
-}: {
-  days: string[];
-  today: string;
-  flush?: boolean;
-}) {
+export function DayHeaders({ days, today }: { days: string[]; today: string }) {
   return (
-    <div className={`flex items-end justify-end gap-1 ${flush ? "" : "pb-2"}`}>
-      {!flush && <div className="min-w-0 flex-1" />}
+    <div className="flex items-end gap-1 pb-1">
+      <div className="min-w-0 flex-1 px-0.5 text-xs text-muted">Date</div>
       <div className="hidden w-9 text-center text-[10px] leading-tight text-muted md:block">
         Streak
       </div>
@@ -35,7 +27,7 @@ export function DayHeaders({
               hideOnMobile ? "hidden md:flex" : "flex"
             } ${day === today ? "text-foreground" : ""}`}
           >
-            <span>{weekday.slice(0, 2)}</span>
+            <span>{weekday}</span>
             <span className="tabular-nums">{date}</span>
           </div>
         );
@@ -48,12 +40,12 @@ export function HabitRow({ habit, days, today }: Props) {
   const done = new Set(habit.recent);
 
   return (
-    <div className="group flex items-center gap-1 border-b border-border py-1.5">
+    <div className="group flex items-center gap-1 border-b border-border py-1">
       <div className="min-w-0 flex-1 pr-2">
-        <div className="flex min-w-0 items-baseline gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Link
             href={`/habits/${habit.id}`}
-            className="truncate rounded-[3px] px-0.5 text-[15px] leading-6 hover:bg-hover"
+            className="-mx-1 w-fit max-w-full min-w-0 break-words rounded-[4px] px-1.5 py-1 text-[15px] leading-6 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent"
           >
             {habit.name}
           </Link>

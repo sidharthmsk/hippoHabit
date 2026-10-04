@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { calendarDate } from "@/lib/timezone";
@@ -85,14 +86,19 @@ export function Shell({
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
-          <Image
-            src="/logo.png"
-            alt=""
-            width={22}
-            height={22}
-            className="rounded-[5px]"
-          />
-          <span className="text-[15px] font-semibold">hippoHabit</span>
+          <Link
+            href="/"
+            className="flex items-center gap-2 rounded-[4px] px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Image
+              src="/logo.png"
+              alt=""
+              width={22}
+              height={22}
+              className="rounded-[5px]"
+            />
+            <span className="text-[15px] font-semibold">hippoHabit</span>
+          </Link>
         </header>
         <main className="min-h-0 flex-1">{children}</main>
       </div>
