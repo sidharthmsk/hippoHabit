@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/hippohabit
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+      # Same layout as the Docker image: run with `node server.js`.
+      # better-sqlite3 is native, so this bundle is for Linux x64 with Node 22.
+      - name: Package standalone bundle
+        run: |
+          name="hippohabit-${GITHUB_REF_NAME}-linux-x64"
+          mkdir -p "dist/$name/.next" "dist/$name/scripts" "dist/$name/data"
+          cp -R .next/standalone/. "dist/$name/"
+          cp -R .next/static "dist/$name/.next/static"
+          cp -R public "dist/$name/public"
+          rm -rf "dist/$name/node_modules/better-sqlite3"
+          cp -R node_modules/better-sqlite3 "dist/$name/node_modules/better-sqlite3"
+          cp scripts/hash-password.mjs "dist/$name/scripts/"
+          cp .env.example LICENSE NOTICE README.md CHANGELOG.md "dist/$name/"
+          rm -f "dist/$name"/.env "dist/$name"/.env.local
+          rm -rf "dist/$name/data"/*
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          (cd dist && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
+      - name: Extract release notes
+        run: |
+          version="${GITHUB_REF_NAME}"
+          awk -v v="$version" '
+            $0 ~ "^## " v "( |$)" { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat >> notes.md <<EOF
+
+          ### Install
+
+          \`\`\`bash
+          docker pull ghcr.io/${{ github.repository_owner }}/hippohabit:${GITHUB_REF_NAME#v}
+          \`\`\`
+
+          Or download \`hippohabit-${GITHUB_REF_NAME}-linux-x64.tar.gz\`, unpack it, set the variables from \`.env.example\`, and run \`node server.js\` with Node 22.
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/*.sha256 \
+            --title "hippoHabit $GITHUB_REF_NAME" \
+            --notes-file notes.md

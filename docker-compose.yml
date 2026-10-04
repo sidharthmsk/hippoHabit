@@ -15,7 +15,7 @@ services:
       - ./data:/app/data
     environment:
       AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
-      # Password sign-in. Hash with: docker compose run --rm habits node scripts/hash-password.mjs
+      # Password sign-in. Hash with: docker compose run --rm hippohabit node scripts/hash-password.mjs
       # AUTH_USERNAME defaults to admin.
       AUTH_USERNAME: ${AUTH_USERNAME:-}
       AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-}

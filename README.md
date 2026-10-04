@@ -28,9 +28,11 @@ npm test
 cp .env.example .env
 # edit AUTH_SECRET, APP_TIMEZONE, and at least one sign-in method (below)
 docker compose build
-docker compose run --rm habits node scripts/hash-password.mjs   # paste the output into .env
+docker compose run --rm hippohabit node scripts/hash-password.mjs   # paste the output into .env
 docker compose up -d
 ```
+
+To skip the build, use the published image: set `image: ghcr.io/sidharthmsk/hippohabit:latest` in `docker-compose.yml`, remove the `build: .` line, and run `docker compose pull`. Each [release](https://github.com/sidharthmsk/hippoHabit/releases) also has a Linux x64 bundle that runs with `node server.js` on Node 22. See [CHANGELOG.md](CHANGELOG.md) for what changed.
 
 The app listens on port 3000 (`PUBLISH_PORT` to change it). Put it behind HTTPS (Caddy, nginx, Traefik). Backup is the file `data/habits.db`, or export JSON from Settings. Importing a hippoHabit backup replaces all habits and check-ins. Importing a [Beaver Habits](https://github.com/daya0576/beaverhabits) JSON export merges it in: new habits are added (first tag becomes the group, starred habits become High priority) and check-ins are merged into habits with the same name.
 
@@ -62,7 +64,7 @@ OIDC_CLIENT_ID=...
 OIDC_CLIENT_SECRET=...
 ```
 
-Without `OIDC_ALLOWED_USERS`, anyone who can sign in to that client gets in. Restrict the application in the provider, or list yourself: `OIDC_ALLOWED_USERS=you@example.com`. The flow uses PKCE, state, and nonce. Signing out of Habits doesn't sign you out of the provider.
+Without `OIDC_ALLOWED_USERS`, anyone who can sign in to that client gets in. Restrict the application in the provider, or list yourself: `OIDC_ALLOWED_USERS=you@example.com`. The flow uses PKCE, state, and nonce. Signing out of hippoHabit doesn't sign you out of the provider.
 
 The old `ACCESS_KEY` isn't used anymore. Devices that are already unlocked stay signed in until you change `AUTH_SECRET`.
 
